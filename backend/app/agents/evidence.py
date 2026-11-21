@@ -40,6 +40,11 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def _first_word(name: str) -> str:
+    w = re.split(r"[\s,.]+", name.strip())[0].lower() if name else ""
+    return w if len(w) >= 3 else ""
+
+
 @dataclass
 class CaseContext:
     """What the research operations need to know about the case."""
@@ -88,6 +93,10 @@ class Ledger:
         start = self.ctx.event_date - timedelta(days=days_before)
         end = self.ctx.event_date + timedelta(days=days_after)
         arts = await news.search(query, start, end, ticker=self.ctx.ticker, limit=limit)
+        # Keep only articles that mention the company: headline feeds mix in
+        # unrelated market stories that would pollute the timeline.
+        names = {self.ctx.ticker.lower(), _first_word(self.ctx.company)}
+        arts = [a for a in arts if any(n and n in f"{a.title} {a.description}".lower() for n in names)]
         out = []
         for a in arts:
             snippet = (a.description or "")[:600]

@@ -17,7 +17,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { Branch, CaseView, Evidence, Message, Report } from "../lib/types";
-import { CATEGORY_LABEL, SCOPE_LABEL, dateTime, money, num, pct, tone } from "../lib/format";
+import { CATEGORY_LABEL, SCOPE_LABEL, compact, dateTime, money, num, pct, tone } from "../lib/format";
 import { CitedText } from "./Cite";
 
 type OnCite = (id: string) => void;
@@ -105,7 +105,7 @@ const RUBRIC: [keyof NonNullable<Branch["score"]>, string][] = [
   ["event", "Event"],
   ["timing", "Timing"],
   ["price_fit", "Price fit"],
-  ["independent", "Independent"],
+  ["independent", "Indep."],
 ];
 
 const STATUS_PILL: Record<string, [string, string]> = {
@@ -227,7 +227,7 @@ export function MetricsRow({ c }: { c: CaseView }) {
         ["z-score", `${a.z_score >= 0 ? "+" : ""}${a.z_score.toFixed(2)}σ`, a.flagged ? "neg" : "", a.flagged ? "flagged (|z| ≥ 2)" : "within range"],
         ["60-day volatility", `${(a.std_ret * 100).toFixed(2)}%`, "", "daily std. dev."],
         ["Volume", a.volume_ratio ? `${a.volume_ratio.toFixed(1)}×` : "—", "", "vs 20-day avg"],
-        ["Market cap", c.profile?.market_cap ? `$${(c.profile.market_cap / 1e9).toFixed(0)}B` : "—", "", c.profile?.industry ?? ""],
+        ["Market cap", compact(c.profile?.market_cap), "", c.profile?.industry ?? ""],
         ["52-week range", c.profile?.week52_low ? `${money(c.profile.week52_low)}–${c.profile.week52_high?.toFixed(0)}` : "—", "", ""],
       ]
     : [];
@@ -290,6 +290,8 @@ const TIMING_PILL: Record<string, [string, string]> = {
   unknown: ["gray", "Time unknown"],
 };
 
+const TIMING_RANK: Record<string, number> = { during: 0, before: 1, unknown: 2, after: 3 };
+
 export function TimingPill({ t }: { t: string }) {
   const [cls, label] = TIMING_PILL[t] ?? ["gray", t];
   return <span className={`pill ${cls}`}><Clock size={11} /> {label}</span>;
@@ -304,7 +306,9 @@ export function Timeline({
     .filter((e) => filter === "all" || e.kind === filter)
     .filter((e) => !(e.kind === "sec_filing" && e.meta?.parent)) // passages live under their filing
     .slice()
-    .reverse();
+    .reverse()
+    // In the overview, lead with what was public by the close.
+    .sort((x, y) => (limit ? TIMING_RANK[x.timing] - TIMING_RANK[y.timing] : 0));
   const shown = limit ? items.slice(0, limit) : items;
   return (
     <div>
