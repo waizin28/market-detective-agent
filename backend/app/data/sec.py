@@ -5,11 +5,15 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from difflib import SequenceMatcher
 from zoneinfo import ZoneInfo
 
-from bs4 import BeautifulSoup
+import warnings
+
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
+
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 from app.data.http import CachedHttp, DataUnavailable
 
@@ -150,15 +154,28 @@ class SecEdgar:
                     headers=self._headers,
                     ttl=7 * 24 * 3600,
                 )
+                # Exhibit names vary by filer (ex99-1.htm, q3fy27pr.htm, ...), so take the
+                # largest HTML documents other than the cover page and XBRL viewer pages:
+                # typically the press release and CFO commentary.
+                cands = []
                 for item in idx.get("directory", {}).get("item", []):
                     name = item.get("name", "")
-                    if re.search(r"ex[-_]?99", name, re.I) and name.lower().endswith((".htm", ".html", ".txt")):
-                        ex_url = ARCHIVE_URL.format(
-                            cik=filing.cik, acc=filing.accession.replace("-", ""), doc=name
-                        )
-                        texts.append(f"\n\n[EXHIBIT {name}]\n" + await self._html_text(ex_url))
+                    if (
+                        name.lower().endswith((".htm", ".html"))
+                        and name != filing.primary_document
+                        and not re.match(r"^R\d+\.htm$", name)
+                        and "index" not in name.lower()
+                    ):
+                        size = int(item.get("size") or 0)
+                        bonus = 10**7 if re.search(r"ex[-_]?99|pr\.htm|press|release", name, re.I) else 0
+                        cands.append((size + bonus, name))
+                for _, name in sorted(cands, reverse=True)[:2]:
+                    ex_url = ARCHIVE_URL.format(
+                        cik=filing.cik, acc=filing.accession.replace("-", ""), doc=name
+                    )
+                    texts.append(f"\n\n[EXHIBIT {name}]\n" + await self._html_text(ex_url))
+                    if url == filing.url:
                         url = ex_url
-                        break
             except DataUnavailable:
                 pass
         return "\n".join(texts)[:max_chars], url
@@ -176,13 +193,13 @@ class SecEdgar:
 
 
 def _parse_acceptance(raw: str | None) -> datetime | None:
-    """EDGAR's ``acceptanceDateTime`` is Eastern time even though it carries a
-    trailing ``Z``. Treating it as UTC would shift every filing by 4-5 hours and
-    corrupt the timing check, so it is parsed as America/New_York."""
+    """EDGAR's ``acceptanceDateTime`` is UTC (e.g. NVIDIA's Q3 8-K accepted
+    ``21:20:51Z`` = 4:20 PM ET, matching the filing index). Returned in ET so
+    the timing check compares against the 4:00 PM ET close correctly."""
     if not raw:
         return None
     try:
         naive = datetime.strptime(raw[:19], "%Y-%m-%dT%H:%M:%S")
     except ValueError:
         return None
-    return naive.replace(tzinfo=ET)
+    return naive.replace(tzinfo=timezone.utc).astimezone(ET)

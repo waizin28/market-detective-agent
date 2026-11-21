@@ -61,6 +61,16 @@ class Ledger:
         self.items: dict[str, dict] = {}
         self._existing = existing or {}
         self.gaps: list[str] = []
+        # Re-hydrate filings found earlier in the case so search_sec_filing can
+        # open them without the researcher re-listing filings.
+        for eid, e in self._existing.items():
+            m = e.get("meta") or {}
+            if e.get("kind") == "sec_filing" and m.get("primary_document") and eid not in ctx.filings:
+                ctx.filings[eid] = Filing(
+                    form=m["form"], accession=m["accession"], filing_date=m["filing_date"],
+                    accepted_at=datetime.fromisoformat(m["accepted_at"]) if m.get("accepted_at") else None,
+                    primary_document=m["primary_document"], items=m.get("items", []), cik=m["cik"],
+                )
 
     def add(self, ev: Evidence) -> dict:
         d = ev.model_dump()
@@ -129,7 +139,9 @@ class Ledger:
                         ),
                         snippet=f"Accepted {f.accepted_at:%Y-%m-%d %H:%M} ET" if f.accepted_at else f"Filed {f.filing_date}",
                         story_key=f.accession,
-                        meta={"form": f.form, "items": f.items, "accession": f.accession},
+                        meta={"form": f.form, "items": f.items, "accession": f.accession, "cik": f.cik,
+                              "filing_date": f.filing_date, "primary_document": f.primary_document,
+                              "accepted_at": f.accepted_at.isoformat() if f.accepted_at else None},
                     )
                 )
             )
