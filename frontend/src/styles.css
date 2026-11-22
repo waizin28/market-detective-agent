@@ -297,6 +297,10 @@ table.data td.r, table.data th.r { text-align: right; }
 
 .lt-item { --tint: 57, 135, 229; display: grid; grid-template-columns: 36px 1fr; gap: 12px; align-items: start; }
 .lt-item.k-sec_filing { --tint: 144, 133, 233; }
+.lt-item.k-analyst { --tint: 250, 178, 25; }
+.lt-item.k-earnings { --tint: 34, 180, 85; }
+.lt-item.focus .lt-card { border-color: rgba(var(--tint), .85); box-shadow: 0 0 0 3px rgba(var(--tint), .18); }
+.lt-at { font-size: 12px; color: var(--text-2); background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 6px; padding: 1px 7px; }
 .lt-node { position: relative; z-index: 1; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
   background: var(--panel); border: 1.5px solid rgba(var(--tint), .55); color: rgb(var(--tint)); margin-top: 10px; }
 .lt-card { min-width: 0; background: rgba(var(--tint), .07); border: 1px solid rgba(var(--tint), .22); border-radius: 14px;
@@ -318,3 +322,66 @@ table.data td.r, table.data th.r { text-align: right; }
 .lt-chips .spacer { flex: 1; }
 .lt-kind { border: 1px solid rgba(var(--tint), .6); color: rgb(var(--tint)); border-radius: 6px; padding: 1px 8px; font-weight: 600; }
 .lt-src { color: var(--text-2); }
+
+/* ---------------------------------------------------------------- intraday + upcoming */
+.id-stats { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-2); margin: 2px 0 8px; }
+.id-stats b { color: var(--text); font-family: var(--mono); font-weight: 600; }
+.id-pins { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.id-pin { all: unset; cursor: pointer; display: grid; grid-template-columns: 10px 92px 1fr auto; gap: 10px; align-items: center;
+  padding: 6px 8px; border-radius: 8px; font-size: 12.5px; color: var(--text-2); }
+.id-pin:hover { background: var(--panel-2); color: var(--text); }
+.id-pin i { width: 10px; height: 10px; border-radius: 50%; }
+.id-pin-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.id-pin-at { font-family: var(--mono); font-size: 12px; }
+@media (max-width: 700px) { .id-pin { grid-template-columns: 10px 1fr; } .id-pin-title, .id-pin-at { grid-column: 2; } }
+
+.up-list { display: flex; flex-direction: column; gap: 10px; }
+.up-item { --tint: 57, 135, 229; display: grid; grid-template-columns: 48px 1fr; gap: 12px; align-items: start; }
+.up-item.k-earnings { --tint: 34, 180, 85; }
+.up-item.k-dividend { --tint: 144, 133, 233; }
+.up-item.k-macro { --tint: 250, 178, 25; }
+.up-date { display: flex; flex-direction: column; align-items: center; border-radius: 10px; padding: 4px 0;
+  background: rgba(var(--tint), .1); border: 1px solid rgba(var(--tint), .35); }
+.up-date .m { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: rgb(var(--tint)); }
+.up-date .d { font-size: 19px; font-weight: 700; line-height: 1.1; color: var(--text); }
+.up-title { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13.5px; color: var(--text); }
+.up-title svg { color: rgb(var(--tint)); }
+.up-detail { font-size: 12.5px; color: var(--text-2); margin-top: 2px; }
+
+/* ---------------------------------------------------------------- case file (print / PDF) */
+.export-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; align-self: flex-start; }
+body.print-mode { background: #fff; color: #14213d; color-scheme: light; }
+.cf { max-width: 860px; margin: 0 auto; padding: 32px 28px 48px; color: #14213d; font: 13.5px/1.55 Inter, system-ui, sans-serif; }
+.cf h1 { font-size: 26px; margin: 2px 0 4px; }
+.cf h2 { font-size: 19px; margin: 0 0 8px; }
+.cf h3 { font-size: 15px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .04em; color: #2f6fdc; }
+.cf section { margin-top: 22px; break-inside: avoid-page; }
+.cf-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; padding: 10px 14px; background: #eef3fc; border-radius: 10px; color: #46536b; }
+.cf-actions .btn { background: #2f6fdc; color: #fff; border: 0; }
+.cf-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; border-bottom: 2px solid #14213d; padding-bottom: 12px; }
+.cf-eyebrow { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #46536b; }
+.cf-sub { margin: 0; color: #46536b; }
+.cf-verdict { padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 12.5px; border: 1.5px solid currentColor; white-space: nowrap; }
+.cf-verdict.v-leading { color: #1d7f5a; }
+.cf-verdict.v-unresolved, .cf-verdict.v-needs_review { color: #b25e09; }
+.cf-verdict.v-no_anomaly { color: #46536b; }
+.cf-lede { font-size: 15px; font-weight: 500; border-left: 3px solid #2f6fdc; padding-left: 12px; }
+.cf-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cf-table th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: #46536b; border-bottom: 1.5px solid #c9d3e3; padding: 6px 8px; }
+.cf-table td { border-bottom: 1px solid #e3e9f2; padding: 7px 8px; vertical-align: top; }
+.cf-note, .cf-small { color: #46536b; font-size: 12px; }
+.cf-timeline { list-style: none; padding: 0; margin: 0; border-left: 2px solid #c9d3e3; }
+.cf-timeline li { position: relative; padding: 0 0 12px 16px; break-inside: avoid; }
+.cf-timeline li::before { content: ""; position: absolute; left: -6px; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: #2f6fdc; }
+.cf-when { font-size: 11.5px; font-weight: 700; color: #2f6fdc; }
+.cf-ev-title { font-weight: 650; }
+.cf-ev-brief { color: #46536b; font-size: 12.5px; }
+.cf-sources { font-size: 11.5px; color: #46536b; padding-left: 20px; }
+.cf-sources li { margin-bottom: 4px; break-inside: avoid; }
+.cf-url { word-break: break-all; color: #2f6fdc; }
+.cf-foot { margin-top: 28px; padding-top: 10px; border-top: 1px solid #c9d3e3; font-size: 11px; color: #46536b; }
+@media print {
+  .no-print { display: none !important; }
+  .cf { padding: 0; max-width: none; }
+  @page { margin: 14mm; }
+}

@@ -2,7 +2,7 @@ export type Timing = "before" | "during" | "after" | "unknown";
 
 export interface Evidence {
   id: string;
-  kind: "sec_filing" | "news" | "market_data" | "macro_data" | "computed";
+  kind: "sec_filing" | "news" | "market_data" | "macro_data" | "computed" | "earnings" | "analyst";
   title: string;
   source: string;
   url?: string | null;
@@ -197,6 +197,27 @@ export interface CaseView {
   api_calls?: number | null;
   running: boolean;
   messages?: Message[];
+  intraday?: Intraday | null;
+  upcoming?: Upcoming[];
+}
+
+export interface Intraday {
+  date: string;
+  prev_close: number;
+  close: number;
+  series: Record<string, { t: string; pct: number }[]>;
+  summary: {
+    open_pct: number; low_pct: number; low_at: string; high_pct: number; high_at: string; close_pct: number;
+    share_by: Record<string, number | null>;
+  };
+}
+
+export interface Upcoming {
+  date: string;
+  kind: "earnings" | "dividend" | "macro";
+  title: string;
+  detail: string;
+  url?: string;
 }
 
 export interface CaseSummary {

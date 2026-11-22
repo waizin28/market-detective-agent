@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, XCircle } from "lucide-react";
+import { AlertTriangle, FileDown, XCircle } from "lucide-react";
 import { api, subscribe } from "../lib/api";
 import type { CaseView, Evidence, Interrupt } from "../lib/types";
 import { money, pct, tone } from "../lib/format";
 import { PriceChart } from "../components/PriceChart";
+import { IntradayChart, UpcomingCard } from "../components/MoveCharts";
 import {
   AgentTrace,
   AnalysisCard,
@@ -13,6 +14,7 @@ import {
   FollowUp,
   HypothesisTree,
   LeadUpTimeline,
+  leadUpRows,
   MetricsRow,
   NextSteps,
   RoundProgress,
@@ -28,6 +30,15 @@ export function CasePage({ caseId, onInvestigate }: { caseId: string; onInvestig
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
   const [open, setOpen] = useState<Evidence | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const markers = useMemo(() => (c ? leadUpRows(c, 10).map((r) => r.e) : []), [c]);
+  const jumpTo = (e: Evidence) => {
+    const el = document.getElementById(`lt-${e.id}`);
+    if (!el) return setOpen(e);
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFocusId(e.id);
+    window.setTimeout(() => setFocusId((f) => (f === e.id ? null : f)), 2200);
+  };
   const [asking, setAsking] = useState(false);
   const [streamKey, setStreamKey] = useState(0);
 
@@ -113,6 +124,11 @@ export function CasePage({ caseId, onInvestigate }: { caseId: string; onInvestig
                 </>
               )}
             </div>
+            {c.report && (
+              <a className="btn sm export-btn" href={`#/case/${caseId}/print`} target="_blank" rel="noreferrer" title="Open a printable case file; save it as PDF">
+                <FileDown size={14} /> Export PDF
+              </a>
+            )}
             <div className="tabs">
               {tabs.map(([k, label, n]) => (
                 <button key={k} className={`tab ${tab === k ? "active" : ""}`} onClick={() => setTab(k)}>
@@ -128,17 +144,18 @@ export function CasePage({ caseId, onInvestigate }: { caseId: string; onInvestig
           <>
             <AnalysisCard c={c} onCite={onCite} />
             <div className="split">
-              <div className="card"><PriceChart c={c} /></div>
+              <div className="card"><PriceChart c={c} markers={markers} focusId={focusId} onMarker={jumpTo} /></div>
               <div className="card"><EventComparison c={c} /></div>
             </div>
+            {c.intraday && <div className="card"><IntradayChart c={c} onOpen={setOpen} /></div>}
             <div className="card">
               <div className="card-h">
                 <h3>What led up to the move</h3>
-                <span className="sub">{c.ticker} news from the week before{c.anomaly ? ` ${c.anomaly.event_date}` : ""}, public before the close</span>
+                <span className="sub">{c.ticker} news, analyst actions and earnings from the week before{c.anomaly ? ` ${c.anomaly.event_date}` : ""}, public before the close</span>
                 <div className="spacer" />
                 <button className="btn sm" onClick={() => setTab("evidence")}>All evidence →</button>
               </div>
-              <LeadUpTimeline c={c} onOpen={setOpen} limit={10} />
+              <LeadUpTimeline c={c} onOpen={setOpen} limit={10} focusId={focusId} onFocus={setFocusId} />
             </div>
             <FollowUp c={c} onAsk={ask} busy={asking} onCite={onCite} />
           </>
@@ -173,6 +190,7 @@ export function CasePage({ caseId, onInvestigate }: { caseId: string; onInvestig
       <div className="col">
         <VerdictCard c={c} onCite={onCite} onInvestigate={onInvestigate} />
         <HypothesisTree c={c} onCite={onCite} />
+        <UpcomingCard c={c} />
         <NextSteps c={c} onCite={onCite} />
       </div>
 

@@ -5,13 +5,15 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceDot,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import type { CaseView, PricePoint } from "../lib/types";
+import type { CaseView, Evidence, PricePoint } from "../lib/types";
+import { KIND_COLOR } from "./MoveCharts";
 import { pct } from "../lib/format";
 
 const RANGES = { "1M": 22, "3M": 66, "6M": 130, "1Y": 260 } as const;
@@ -29,7 +31,9 @@ interface Series {
  * window (one shared axis: no dual-axis chart). Volume lives in its own
  * small chart underneath.
  */
-export function PriceChart({ c }: { c: CaseView }) {
+export function PriceChart({
+  c, markers = [], focusId, onMarker,
+}: { c: CaseView; markers?: Evidence[]; focusId?: string | null; onMarker?: (e: Evidence) => void }) {
   const [range, setRange] = useState<Range>("3M");
   const eventDate = c.anomaly?.event_date;
 
@@ -63,6 +67,26 @@ export function PriceChart({ c }: { c: CaseView }) {
     return { rows, series };
   }, [c, range]);
 
+  // Pin each timeline event to the first trading day on/after its ET publish date.
+  const pins = useMemo(() => {
+    const out = new Map<string, Evidence[]>();
+    if (!rows.length) return [] as { date: string; y: number; items: Evidence[] }[];
+    const first = String(rows[0].date), last = String(rows[rows.length - 1].date);
+    for (const e of markers) {
+      if (!e.published_at) continue;
+      const d = /^\d{4}-\d{2}-\d{2}$/.test(e.published_at)
+        ? e.published_at
+        : new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(e.published_at));
+      if (d < first) continue;
+      const row = rows.find((r) => String(r.date) >= d) ?? (d <= last ? undefined : rows[rows.length - 1]);
+      if (!row) continue;
+      const k = String(row.date);
+      out.set(k, [...(out.get(k) ?? []), e]);
+    }
+    const key = series[0].key;
+    return [...out.entries()].map(([date, items]) => ({ date, y: Number(rows.find((r) => r.date === date)?.[key]), items }));
+  }, [rows, markers, series]);
+
   if (!rows.length) return <div className="empty">Price history will appear once detection runs.</div>;
   const fmtDate = (d: string) => new Date(d + "T00:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
 
@@ -92,9 +116,12 @@ export function PriceChart({ c }: { c: CaseView }) {
             <i style={{ background: "var(--warn)", width: 2, height: 12 }} /> Event day {eventDate}
           </span>
         )}
+        {pins.length > 0 && (
+          <span><i style={{ width: 10, height: 10, borderRadius: 5, background: "#e8eef8" }} /> Timeline events (click)</span>
+        )}
       </div>
       <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={rows} margin={{ top: 8, right: 12, bottom: 0, left: -8 }}>
+        <LineChart data={rows} margin={{ top: 8, right: 22, bottom: 0, left: -8 }}>
           <CartesianGrid stroke="#1a2944" vertical={false} />
           <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: "#7184a3", fontSize: 11 }} axisLine={{ stroke: "#1e2e4a" }} tickLine={false} minTickGap={40} />
           <YAxis domain={["auto", "auto"]} tick={{ fill: "#7184a3", fontSize: 11 }} axisLine={false} tickLine={false} width={44} />
@@ -134,6 +161,27 @@ export function PriceChart({ c }: { c: CaseView }) {
               isAnimationActive={false}
             />
           ))}
+          {pins.map((p) => {
+            const on = !!focusId && p.items.some((e) => e.id === focusId);
+            return (
+              <ReferenceDot
+                key={p.date}
+                x={p.date}
+                y={p.y}
+                ifOverflow="extendDomain"
+                shape={(props: { cx?: number; cy?: number }) => (
+                  <g style={{ cursor: "pointer" }} onClick={() => onMarker?.(p.items[0])}>
+                    <title>{p.items.map((e) => `• ${e.title}`).join("\n")}</title>
+                    <circle cx={props.cx} cy={props.cy} r={on ? 14 : 11} fill={on ? "rgba(141,184,255,.25)" : "transparent"} />
+                    <circle cx={props.cx} cy={props.cy} r={on ? 8 : 6} fill={KIND_COLOR[p.items[0].kind] ?? "#e8eef8"} stroke="#0f1a2e" strokeWidth={2} />
+                    {p.items.length > 1 && (
+                      <text x={(props.cx ?? 0) + 9} y={(props.cy ?? 0) - 8} fill="#e8eef8" fontSize={10} fontWeight={700}>{p.items.length}</text>
+                    )}
+                  </g>
+                )}
+              />
+            );
+          })}
         </LineChart>
       </ResponsiveContainer>
       <div className="sub" style={{ margin: "4px 0 0 4px" }}>Volume</div>
