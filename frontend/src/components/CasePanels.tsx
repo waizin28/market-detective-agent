@@ -70,7 +70,7 @@ export function VerdictBadge({ c }: { c: CaseView }) {
   return <span className="pill warn"><CircleHelp size={13} /> Cause unresolved</span>;
 }
 
-export function VerdictCard({ c, onCite }: { c: CaseView; onCite: OnCite }) {
+export function VerdictCard({ c, onCite, onInvestigate }: { c: CaseView; onCite: OnCite; onInvestigate?: (ticker: string, date: string) => void }) {
   const r = c.report;
   const known = useMemo(() => new Set(c.evidence.map((e) => e.id)), [c.evidence]);
   const leading = r?.explanations.filter((e) => r.verdict.leading_ids.includes(e.branch_id)) ?? [];
@@ -101,7 +101,7 @@ export function VerdictCard({ c, onCite }: { c: CaseView; onCite: OnCite }) {
           </>
         );
       })()}
-      {r && r.verdict.status !== "no_anomaly" && (
+      {r && (r.verdict.status !== "no_anomaly" || r.why_it_moved) && (
         <>
           <div className="section-label"><Sparkles size={13} /> Why it {c.anomaly && c.anomaly.ret < 0 ? "went down" : "went up"}</div>
           <p className="verdict-text">
@@ -154,7 +154,18 @@ export function VerdictCard({ c, onCite }: { c: CaseView; onCite: OnCite }) {
           </ul>
         </>
       )}
-      {r && r.verdict.status === "no_anomaly" && <p className="verdict-text"><CitedText text={r.summary} onCite={onCite} /></p>}
+      {r && r.verdict.status === "no_anomaly" && (
+        <>
+          {!r.why_it_moved && <p className="verdict-text"><CitedText text={r.summary} onCite={onCite} known={known} /></p>}
+          {!r.why_it_moved && breakdown && <p className="sub"><BarChart3 size={12} /> {breakdown}</p>}
+          <p className="sub">This move was inside the stock's normal range, so the full hypothesis investigation didn't run.</p>
+          {onInvestigate && c.ticker && c.anomaly && (
+            <button className="btn sm primary" style={{ marginTop: 6 }} onClick={() => onInvestigate(c.ticker!, c.anomaly!.event_date)}>
+              <Sparkles size={13} /> Investigate this move anyway
+            </button>
+          )}
+        </>
+      )}
       {r && r.uncertainties.length > 0 && (
         <>
           <div className="section-label warn"><AlertTriangle size={13} /> Remaining uncertainty</div>

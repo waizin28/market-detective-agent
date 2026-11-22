@@ -166,28 +166,65 @@ async def detect_anomaly(state: CaseState, runtime: Runtime[Deps]) -> dict:
     }
 
 
-def route_after_detection(state: CaseState) -> str:
-    return "build_timeline" if state["status"] == "investigating" else "no_anomaly_report"
+def route_after_timeline(state: CaseState) -> str:
+    return "propose_hypotheses" if state["status"] == "investigating" else "no_anomaly_report"
+
+
+def _normal_day_summary(state: dict, th: float) -> str:
+    a = state["anomaly"]
+    bm = "; ".join(
+        f"{b['ticker']} ({b['role']}) {b['ret']:+.2%}" for b in a["benchmarks"] if b.get("ret") is not None
+    )
+    news = sum(1 for e in state["evidence"].values() if e["kind"] == "news" and e["timing"] in ("before", "during"))
+    return (
+        f"{state['ticker']} moved {a['ret']:+.2%} on {a['event_date']}, a z-score of {a['z_score']:+.2f} "
+        f"against the prior {a['lookback_days']} trading days - inside the normal ±{th:.1f} range, so the "
+        f"full hypothesis investigation was not run. Same day: {bm or 'no benchmark data'}. "
+        f"{news} news items about the company from the preceding week are in the timeline."
+    )
 
 
 async def no_anomaly_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
+    """Normal-range move: still give the reader the day's numbers, the week's news and,
+    when enabled, a single-call coordinator brief of what the news says."""
+    deps, s = runtime.context, runtime.context.settings
     a = state["anomaly"]
-    th = runtime.context.settings.anomaly_z_threshold
+    th = s.anomaly_z_threshold
+    headline = f"{state['ticker']} {a['ret']:+.2%} on {a['event_date']}: within its normal range"
+    why, summary, key_events, uncertainties, next_steps = "", _normal_day_summary(state, th), [], [], []
+    if s.brief_normal_days:
+        try:
+            n = await deps.roles.brief_normal_day(state)
+            ev = state["evidence"]
+            ev_day = date.fromisoformat(a["event_date"])
+            headline, why, uncertainties, next_steps = n.headline, n.why_it_moved, n.uncertainties, n.next_steps
+            summary = n.summary or summary
+            key_events = sorted(
+                (
+                    {"evidence_id": k.evidence_id, "headline": k.headline, "brief": k.brief}
+                    for k in {k.evidence_id: k for k in n.key_events}.values()
+                    if k.evidence_id in ev
+                    and ev[k.evidence_id]["kind"] in ("news", "sec_filing")
+                    and ev[k.evidence_id]["timing"] in ("before", "during")
+                    and in_news_window(ev[k.evidence_id], ev_day, 7)
+                ),
+                key=lambda k: _published_ts(ev[k["evidence_id"]]),
+            )
+        except Exception:
+            log.exception("normal-day brief failed; using the computed summary")
     report = {
-        "headline": f"No unusual move detected for {state['ticker']}",
-        "summary": (
-            f"The largest recent move was {a['ret']:+.2%} on {a['event_date']}, a z-score of "
-            f"{a['z_score']:+.2f} against the prior {a['lookback_days']} trading days, below the "
-            f"±{th:.1f} threshold. No investigation was opened. Re-run with 'investigate anyway' to force one."
-        ),
+        "headline": headline,
+        "why_it_moved": why,
+        "summary": summary,
+        "key_events": key_events,
         "verdict": {"status": "no_anomaly", "leading_ids": [], "ranks": {}, "blockers": {}},
         "explanations": [],
-        "uncertainties": [],
-        "next_steps": [],
+        "uncertainties": uncertainties,
+        "next_steps": next_steps,
         "disclaimer": DISCLAIMER,
         "generated_at": now_iso(),
     }
-    return {"report": report, "status": "complete", "events": [_emit("coordinator", report["headline"])]}
+    return {"report": report, "status": "complete", "events": [_emit("coordinator", headline)]}
 
 
 # ===========================================================================

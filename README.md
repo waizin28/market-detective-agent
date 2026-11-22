@@ -118,8 +118,11 @@ The first investigation that searches a filing downloads the `all-MiniLM-L6-v2` 
 ## Using the app
 
 1. **Investigate a stock.** Type a ticker or company name (e.g. `NVDA` or `nvidia`) and press
-   **Investigate**. Leave **Event date** empty to investigate the largest move of the last 20
-   trading days, or pick a specific day.
+   **Investigate**. **Event date** starts at the latest close; pick any past day to analyze it
+   instead (weekends and holidays use the prior trading day). If the move was within the
+   stock's normal range you still get the numbers, the week's news timeline and a short brief,
+   plus an **Investigate this move anyway** button for the full multi-agent investigation.
+   The Watchlist's **Investigate** buttons open each stock's largest recent move.
 2. **Watch it work.** The case page updates live as the agents run: anomaly statistics, the price
    chart against benchmarks, the hypothesis tree with rubric scores, and an **Agent trace** tab
    showing each step.
@@ -148,9 +151,9 @@ case survives a server restart and can pause for human input.
 flowchart TD
     A[resolve_case<br/>coordinator] -->|ambiguous name| H{{interrupt: ask the user}}
     H --> A
-    A --> B[detect_anomaly<br/>z-score vs prior 60 days, peers, sector ETF, SPY]
-    B -->|move within ±2σ| N[no-anomaly report]
-    B --> C[build_timeline<br/>SEC filings, news, macro]
+    A --> B[detect_anomaly<br/>picked day (default: latest close) vs prior 60 days, peers, sector ETF, SPY]
+    B --> C[build_timeline<br/>SEC filings, week of news, macro]
+    C -->|move within ±2σ| N[normal-day brief<br/>one coordinator call over the week's news]
     C --> D[propose_hypotheses<br/>analyst: up to 4 branches]
     D -->|Send, in parallel| R[research_check<br/>researcher ReAct agent + read-only tools]
     R --> E[critique<br/>critic scores; Python re-verifies]

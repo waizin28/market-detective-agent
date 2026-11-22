@@ -156,7 +156,7 @@ export default function App() {
           {route.page === "case" && (
             <div className="col">
               <SearchBar onSubmit={start} disabled={!!config && !llmReady} />
-              <CasePage key={route.id} caseId={route.id} />
+              <CasePage key={route.id} caseId={route.id} onInvestigate={(t, d) => start(t, d, true).catch((e) => alert((e as Error).message))} />
             </div>
           )}
           {route.page === "watchlist" && (
