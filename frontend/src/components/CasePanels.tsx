@@ -6,6 +6,7 @@ import {
   CircleDashed,
   CircleHelp,
   Clock,
+  DollarSign,
   FileText,
   Globe2,
   Landmark,
@@ -14,6 +15,7 @@ import {
   Send,
   ShieldAlert,
   Sparkles,
+  Users,
   XCircle,
 } from "lucide-react";
 import type { Branch, CaseView, Evidence, Message, Report } from "../lib/types";
@@ -367,6 +369,8 @@ const KIND_ICON: Record<string, JSX.Element> = {
   market_data: <BarChart3 size={17} />,
   macro_data: <Globe2 size={17} />,
   computed: <Sparkles size={17} />,
+  earnings: <DollarSign size={17} />,
+  analyst: <Users size={17} />,
 };
 
 const TIMING_PILL: Record<string, [string, string]> = {
@@ -439,28 +443,56 @@ export function Timeline({
  * each with a short brief. Uses the coordinator's key_events when the case file is ready;
  * while the investigation runs, falls back to company news/filings before the close.
  */
-export function LeadUpTimeline({ c, onOpen, limit = 7 }: { c: CaseView; onOpen: (e: Evidence) => void; limit?: number }) {
-  const byId = useMemo(() => new Map(c.evidence.map((e) => [e.id, e])), [c.evidence]);
+export type LeadRow = { e: Evidence; headline: string; brief: string };
+const LEAD_KINDS = ["news", "analyst", "earnings", "sec_filing"];
+const KIND_LABEL: Record<string, string> = { news: "News", sec_filing: "SEC filing", analyst: "Analyst", earnings: "Earnings" };
+
+/** The events shown on the lead-up timeline (also marked on the price chart). */
+export function leadUpRows(c: CaseView, limit = 10): LeadRow[] {
+  const byId = new Map(c.evidence.map((e) => [e.id, e]));
   const curated = (c.report?.key_events ?? [])
     .map((k) => ({ e: byId.get(k.evidence_id), headline: k.headline || "", brief: k.brief }))
-    .filter((x): x is { e: Evidence; headline: string; brief: string } => !!x.e);
+    .filter((x): x is LeadRow => !!x.e);
   const ts = (e: Evidence) => (e.published_at ? Date.parse(e.published_at) : Infinity);
-  // While the case runs (or for older cases): news articles about the company only.
-  const rows = curated.length
+  const event = c.anomaly?.event_date ? Date.parse(`${c.anomaly.event_date}T21:00:00Z`) : Infinity;
+  const recent = (e: Evidence, days: number) => ts(e) <= event && event - ts(e) <= days * 86400000;
+  // Always surface the latest earnings result (if within 2 weeks) and the two most
+  // recent rating changes; these are the most common causes of single-stock moves.
+  const extras: LeadRow[] = [];
+  const earn = c.evidence.filter((e) => e.kind === "earnings" && e.timing !== "after" && recent(e, 14)).slice(-1);
+  const ratings = c.evidence
+    .filter((e) => e.kind === "analyst" && e.timing !== "after" && recent(e, 14) && /upgrade|downgrade|→/.test(e.title))
+    .sort((a, b) => ts(a) - ts(b))
+    .slice(-2);
+  for (const e of [...earn, ...(curated.length ? [] : ratings)]) extras.push({ e, headline: "", brief: e.snippet || "" });
+  // While the case runs (or for older cases): the company's latest news.
+  const base = curated.length
     ? curated
     : c.evidence
         .filter((e) => e.kind === "news" && (e.timing === "before" || e.timing === "during"))
-        .filter((e) => !/stock price, news, quote|quote & history|stock quote/i.test(e.title)) // quote pages aren't events
+        .filter((e) => !isQuotePage(e))
         .sort((a, b) => ts(a) - ts(b))
-        .slice(-limit)
+        .slice(-(limit - extras.length))
         .map((e) => ({ e, headline: "", brief: e.snippet ? e.snippet.slice(0, 220) + (e.snippet.length > 220 ? "…" : "") : "" }));
+  const seen = new Set(base.map((r) => r.e.id));
+  const rows = [...base, ...extras.filter((x) => !seen.has(x.e.id))].sort((a, b) => ts(a.e) - ts(b.e));
+  return rows.filter((r) => LEAD_KINDS.includes(r.e.kind)).slice(-limit);
+}
+
+/** Ticker quote pages ("NVDA stock price, news, quote and history") aren't events. */
+export const isQuotePage = (e: Evidence) => /stock price, news, quote|quote & history|stock quote/i.test(e.title);
+
+export function LeadUpTimeline({
+  c, onOpen, limit = 7, focusId, onFocus,
+}: { c: CaseView; onOpen: (e: Evidence) => void; limit?: number; focusId?: string | null; onFocus?: (id: string | null) => void }) {
+  const rows = useMemo(() => leadUpRows(c, limit), [c, limit]);
   if (rows.length === 0) {
     return <div className="empty">{c.report ? `No ${c.ticker ?? "company"} news was found before the close.` : "Collecting events…"}</div>;
   }
   // Group by the Eastern-time calendar day, labeled relative to the move day.
   const eventDay = c.anomaly?.event_date;
-  const groups: { day: string; items: typeof rows }[] = [];
-  for (const r of rows.slice(0, limit)) {
+  const groups: { day: string; items: LeadRow[] }[] = [];
+  for (const r of rows) {
     const day = etDay(r.e.published_at);
     const g = groups[groups.length - 1];
     if (g && g.day === day) g.items.push(r);
@@ -475,19 +507,34 @@ export function LeadUpTimeline({ c, onOpen, limit = 7 }: { c: CaseView; onOpen: 
           </div>
           {g.items.map(({ e, headline, brief }) => {
             const site = (e.meta?.publisher_site as string | undefined)?.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+            const moveAt = e.meta?.price_move_at_publish as number | undefined;
+            const share = e.meta?.share_of_move_at_publish as number | null | undefined;
             return (
-              <div key={e.id} className={`lt-item k-${e.kind} ${e.timing === "during" ? "during" : ""}`}>
+              <div
+                key={e.id}
+                id={`lt-${e.id}`}
+                className={`lt-item k-${e.kind} ${e.timing === "during" ? "during" : ""} ${focusId === e.id ? "focus" : ""}`}
+                onMouseEnter={() => onFocus?.(e.id)}
+                onMouseLeave={() => onFocus?.(null)}
+              >
                 <div className="lt-node">{KIND_ICON[e.kind] ?? <FileText size={16} />}</div>
                 <div className="lt-card">
                   <div className="lt-when">
                     <span className="lt-date">{etDate(e.published_at)}</span>
                     {!e.date_only && <span className="lt-time">{etTime(e.published_at)}</span>}
+                    {moveAt !== undefined && (
+                      <span className="lt-at" title="Stock move (vs the prior close) when this was published, from 5-minute prices">
+                        {moveAt === 0 && share === 0
+                          ? "Published before trading moved"
+                          : `${c.ticker} ${pct(moveAt, 1)} when published${share != null ? ` · ${Math.round(share * 100)}% of the move done` : ""}`}
+                      </span>
+                    )}
                   </div>
                   <button className="lt-title" onClick={() => onOpen(e)}>{headline || e.title}</button>
                   {brief && <div className="lt-quote">{brief}</div>}
                   {headline && <div className="lt-orig">Original headline: “{e.title}”</div>}
                   <div className="lt-chips">
-                    <span className="lt-kind">{e.kind === "sec_filing" ? "SEC filing" : "News"}</span>
+                    <span className="lt-kind">{KIND_LABEL[e.kind] ?? e.kind}</span>
                     <span className="dot" />
                     <span className="lt-src">{e.source}{site ? ` · ${site}` : ""}</span>
                     <span className="dot" />
@@ -506,17 +553,17 @@ export function LeadUpTimeline({ c, onOpen, limit = 7 }: { c: CaseView; onOpen: 
 }
 
 const ET = "America/New_York";
-function etDay(iso?: string | null): string {
+export function etDay(iso?: string | null): string {
   if (!iso) return "unknown";
   if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
   return new Intl.DateTimeFormat("en-CA", { timeZone: ET, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
 }
-function etDate(iso?: string | null): string {
+export function etDate(iso?: string | null): string {
   if (!iso) return "Date unknown";
   const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00Z`) : new Date(iso);
   return new Intl.DateTimeFormat("en-US", { timeZone: ET, weekday: "short", month: "short", day: "numeric" }).format(d);
 }
-function etTime(iso?: string | null): string {
+export function etTime(iso?: string | null): string {
   if (!iso || /^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
   return new Intl.DateTimeFormat("en-US", { timeZone: ET, hour: "numeric", minute: "2-digit" }).format(new Date(iso)) + " ET";
 }

@@ -3,13 +3,15 @@ import { BarChart3, Clock, Eye, Home, Search, Settings, ShieldCheck, Sparkles } 
 import { api } from "./lib/api";
 import type { AppConfig } from "./lib/types";
 import { CasePage } from "./pages/CasePage";
+import { CaseFile } from "./pages/CaseFile";
 import { HistoryPage, SettingsPage, WatchlistPage } from "./pages/OtherPages";
 
-type Route = { page: "home" } | { page: "case"; id: string } | { page: "watchlist" } | { page: "history" } | { page: "settings" };
+type Route = { page: "home" } | { page: "case"; id: string } | { page: "print"; id: string } | { page: "watchlist" } | { page: "history" } | { page: "settings" };
 
 function parseHash(): Route {
   const h = window.location.hash.replace(/^#\/?/, "");
-  const [page, id] = h.split("/");
+  const [page, id, sub] = h.split("/");
+  if (page === "case" && id && sub === "print") return { page: "print", id };
   if (page === "case" && id) return { page: "case", id };
   if (page === "watchlist" || page === "history" || page === "settings") return { page };
   return { page: "home" };
@@ -115,6 +117,8 @@ export default function App() {
     ["settings", "Settings", <Settings size={17} />],
   ];
   const active = route.page === "case" ? "home" : route.page;
+
+  if (route.page === "print") return <CaseFile caseId={route.id} />;
 
   return (
     <div className="app">

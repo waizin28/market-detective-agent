@@ -129,10 +129,22 @@ The first investigation that searches a filing downloads the `all-MiniLM-L6-v2` 
 3. **Read the case file.** The **Case verdict** panel shows the leading explanation, or says the
    cause is unresolved. Click any citation chip (e.g. `E-3F9A1C`) to open the underlying evidence,
    its source link and when it became public.
-4. **Answer clarifications.** If a name is ambiguous (e.g. "apple"), the investigation pauses and
+4. **Explore the evidence visually.**
+   - **What led up to the move** lists the week's news, the latest earnings result (EPS vs
+     estimate) and analyst rating or price-target changes, grouped by day. Same-day stories
+     show how far the stock had already moved when they were published.
+   - The **price chart** marks those events; click a marker to jump to it in the timeline.
+   - **Move day, minute by minute** plots 5-minute prices for the stock and its sector ETF,
+     with each same-day story pinned at its publication time, so you can see whether the price
+     moved before or after the news. Yahoo keeps 5-minute bars for about 60 days.
+   - **What to watch next** lists the next earnings date, dividend dates, Fed (FOMC) decisions
+     and, with a FRED key, scheduled macro releases.
+5. **Export a PDF.** **Export PDF** opens a printable case file (verdict, context, timeline,
+   explanations tested, sources with URLs); choose *Save as PDF* in the print dialog.
+6. **Answer clarifications.** If a name is ambiguous (e.g. "apple"), the investigation pauses and
    asks which company you mean.
-5. **Ask follow-ups** once the case file is ready, e.g. *"What would change this conclusion?"*
-6. **Use the Watchlist** to see which stocks are moving unusually, and **Research history** to
+7. **Ask follow-ups** once the case file is ready, e.g. *"What would change this conclusion?"*
+8. **Use the Watchlist** to see which stocks are moving unusually, and **Research history** to
    reopen past cases.
 
 A full investigation usually takes 1–3 minutes, depending on the model and how many evidence
@@ -343,7 +355,9 @@ Run the unit tests with `cd backend && uv run pytest`.
 
 ## Limitations
 
-- Daily data only: the move is measured close-to-close, so intraday timing within a day isn't analyzed.
+- The move is measured close-to-close. Intraday timing uses 5-minute bars, which Yahoo keeps for
+  about 60 days; for older dates only daily data is available. Publication times come from the
+  source and can lag the first report.
 - Free news sources have short history windows, so older events depend mostly on SEC filings and market data.
 - Rubric scores measure evidence conditions, not the probability that an explanation is the cause.
 - Agents share one model, so their agreement isn't fully independent verification. The design
