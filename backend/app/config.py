@@ -8,12 +8,26 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = BACKEND_DIR.parent
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=BACKEND_DIR / ".env", env_file_encoding="utf-8", extra="ignore"
+        # Both locations are read; backend/.env wins over the project-root .env.
+        env_file=(PROJECT_DIR / ".env", BACKEND_DIR / ".env"),
+        env_file_encoding="utf-8",
+        # A blank line like "OPENAI_API_KEY=" doesn't wipe out a value set elsewhere.
+        env_ignore_empty=True,
+        extra="ignore",
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings
+    ):
+        # .env files take precedence over shell-exported variables, so a stale
+        # key exported in ~/.zshrc can't silently override the project's key.
+        return init_settings, dotenv_settings, env_settings, file_secret_settings
 
     # --- LLM -------------------------------------------------------------
     openai_api_key: str | None = None
