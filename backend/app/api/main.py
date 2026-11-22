@@ -86,7 +86,10 @@ async def config():
             "alpha_vantage": bool(s.alpha_vantage_api_key),
             "newsapi": bool(s.newsapi_key),
             "fred": bool(s.fred_api_key),
-            "sec_user_agent": "set SEC_USER_AGENT" not in s.sec_user_agent,
+            # Placeholder values (default or the .env.example template) don't count.
+            "sec_user_agent": not any(
+                p in s.sec_user_agent for p in ("set SEC_USER_AGENT", "example.com")
+            ),
         },
         "limits": {
             "beam_width": s.beam_width,
