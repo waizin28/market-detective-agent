@@ -16,6 +16,8 @@ from langgraph.config import get_stream_writer
 from langgraph.runtime import Runtime
 from langgraph.types import Send, interrupt
 
+from app.analysis.upcoming import upcoming_events
+from app.data.sec import ET
 from app.agents.evidence import CaseContext, Ledger, evidence_id, in_news_window, now_iso, price_history_url
 from app.analysis.anomaly import compute_anomaly, price_points
 from app.analysis.scoring import decide_verdict, rank_key, score_branch, select_beam
@@ -204,7 +206,7 @@ async def no_anomaly_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
                     {"evidence_id": k.evidence_id, "headline": k.headline, "brief": k.brief}
                     for k in {k.evidence_id: k for k in n.key_events}.values()
                     if k.evidence_id in ev
-                    and ev[k.evidence_id]["kind"] in ("news", "sec_filing")
+                    and ev[k.evidence_id]["kind"] in ("news", "sec_filing", "analyst", "earnings")
                     and ev[k.evidence_id]["timing"] in ("before", "during")
                     and in_news_window(ev[k.evidence_id], ev_day, 7)
                 ),
@@ -295,9 +297,24 @@ async def build_timeline(state: CaseState, runtime: Runtime[Deps]) -> dict:
     # the most recent headlines.
     for wk, start in enumerate(range(7, s.news_lookback_days + 1, 7)):
         tasks[f"news_week_{wk}"] = ledger.news(query, start, -(start - 7) + (1 if start == 7 else 0), limit=10)
+    tasks["earnings"] = ledger.earnings()
+    tasks["analysts"] = ledger.analyst_actions()
+    tasks["upcoming"] = upcoming_events(state["ticker"], datetime.now(ET).date(), deps.fred)
     if deps.fred.available:
         tasks["macro"] = ledger.macro()
     results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+    upcoming = results[list(tasks).index("upcoming")]
+    upcoming = [] if isinstance(upcoming, Exception) else upcoming
+
+    # Where in the day did the move happen? Annotates same-day news found above.
+    intraday = None
+    sector = next((b for b in a["benchmarks"] if b["role"] == "sector" and b["ret"] is not None), None)
+    try:
+        intraday = await ledger.intraday(
+            a["prev_close"], a["close"], sector["ticker"] if sector else None, sector["ret"] if sector else None
+        )
+    except (DataUnavailable, BudgetExceeded) as exc:
+        ledger.gaps.append(f"Intraday prices unavailable: {exc}")
     gaps = list(ledger.gaps)
     for name, res in zip(tasks, results):
         if isinstance(res, Exception):
@@ -305,13 +322,19 @@ async def build_timeline(state: CaseState, runtime: Runtime[Deps]) -> dict:
     if not deps.fred.available:
         gaps.append("Macro data (FRED) not configured; macro explanations can't be checked against yields.")
 
-    counts = {k: sum(1 for e in ledger.items.values() if e["kind"] == k) for k in ("sec_filing", "news", "macro_data")}
+    gaps += [g for g in ledger.gaps if g not in gaps]
+    counts = {k: sum(1 for e in ledger.items.values() if e["kind"] == k) for k in ("sec_filing", "news", "macro_data", "analyst", "earnings")}
     after = sum(1 for e in ledger.items.values() if e["timing"] == "after")
     msg = (
         f"Timeline built: {counts['sec_filing']} filings, {counts['news']} articles, "
+        f"{counts['analyst']} analyst actions, {counts['earnings']} earnings report, "
         f"{counts['macro_data']} macro items ({after} published after the move)"
+        + ("; intraday path recorded" if intraday else "")
     )
-    return {"evidence": ledger.items, "gaps": gaps, "events": [_emit("researcher", msg)]}
+    return {
+        "evidence": ledger.items, "gaps": gaps, "intraday": intraday, "upcoming": upcoming,
+        "events": [_emit("researcher", msg)],
+    }
 
 
 # ===========================================================================
@@ -611,7 +634,7 @@ async def write_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
             {"evidence_id": k.evidence_id, "headline": k.headline, "brief": k.brief}
             for k in {k.evidence_id: k for k in narrative.key_events}.values()  # de-dupe ids
             if k.evidence_id in ev
-            and ev[k.evidence_id]["kind"] in ("news", "sec_filing")
+            and ev[k.evidence_id]["kind"] in ("news", "sec_filing", "analyst", "earnings")
             and ev[k.evidence_id]["timing"] in ("before", "during")
             and in_news_window(ev[k.evidence_id], date.fromisoformat(state["anomaly"]["event_date"]), 7)
         ),

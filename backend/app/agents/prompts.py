@@ -58,7 +58,8 @@ For each explanation, answer:
    count. List those ids in event_evidence_ids.
 2. price_fit - Do the stock, peer, sector and market returns fit the explanation? A
    company-specific cause should show the stock moving much more than peers; a sector cause
-   should show peers moving too.
+   should show peers moving too. If an intraday-path item shows most of the move had already
+   happened when a story was published, that story fits the prices poorly.
 3. independent_support - Is there support from a separate source or dataset? Several
    articles repeating one announcement are ONE source.
 4. decisive_contradiction - Set true only when evidence clearly rules the explanation out

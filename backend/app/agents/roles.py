@@ -105,8 +105,8 @@ def focused_evidence(state: dict, branch_id: str) -> dict[str, dict]:
         k: v
         for k, v in state["evidence"].items()
         if k in own
-        or v["kind"] in ("computed", "market_data", "macro_data")
-        or (v["kind"] in ("news", "sec_filing") and v["timing"] in ("before", "during"))
+        or v["kind"] in ("computed", "market_data", "macro_data", "earnings")
+        or (v["kind"] in ("news", "sec_filing", "analyst") and v["timing"] in ("before", "during"))
     }
 
 
@@ -267,7 +267,7 @@ class LLMRoles:
             ],
             name=f"researcher_{branch['id']}",
         )
-        known = {k: v for k, v in state["evidence"].items() if v["kind"] in ("sec_filing", "market_data")}
+        known = {k: v for k, v in state["evidence"].items() if v["kind"] in ("sec_filing", "market_data", "earnings", "computed")}
         msg = (
             f"## Anomaly\n{anomaly_brief(state)}\n"
             f"## Hypothesis [{branch['id']}] {branch['title']}\n{branch['statement']}\n"

@@ -19,7 +19,7 @@ from app.analysis.timing import can_be_trigger
 from app.models import CriticAssessment
 
 COMPANY_CATEGORIES = {"earnings_guidance", "company_specific", "analyst_action", "corporate_action"}
-PRIMARY_KINDS = {"sec_filing", "market_data", "macro_data", "computed"}
+PRIMARY_KINDS = {"sec_filing", "market_data", "macro_data", "computed", "earnings"}
 
 
 @dataclass

@@ -82,4 +82,19 @@ def build_research_tools(ledger: Ledger, top_k: int = 5) -> list[BaseTool]:
             return _unavailable(ledger, "macro data", exc)
         return render_evidence(items) if items else "No macro data for that date."
 
-    return [search_news, list_sec_filings, search_sec_filing, get_daily_returns, get_macro_context]
+    @tool
+    async def get_earnings_and_analyst_actions(days_before: int = 14) -> str:
+        """The company's latest earnings result (reported EPS vs the consensus
+        estimate) and analyst upgrades, downgrades and price-target changes in
+        the days before the event. Use for 'earnings miss' or 'downgrade'
+        explanations."""
+        items: list[dict] = []
+        for what, coro in (("earnings", ledger.earnings()), ("analyst actions", ledger.analyst_actions(max(1, min(days_before, 60))))):
+            try:
+                items += await coro
+            except (DataUnavailable, BudgetExceeded) as exc:
+                _unavailable(ledger, what, exc)
+        return render_evidence(items) if items else "No earnings result or analyst actions found in that window."
+
+    return [search_news, list_sec_filings, search_sec_filing, get_daily_returns, get_macro_context,
+            get_earnings_and_analyst_actions]

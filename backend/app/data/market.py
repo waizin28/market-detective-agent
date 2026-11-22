@@ -193,3 +193,92 @@ def sector_etf_for(profile: Profile) -> str | None:
     if profile.sector and profile.sector.lower() in SECTOR_ETFS:
         return SECTOR_ETFS[profile.sector.lower()]
     return None
+
+
+# ---------------------------------------------------------------------------
+# Company calendar data (earnings, analyst actions) and intraday bars. All from
+# yfinance, free and keyless. Every call is charged to the run's budget.
+# ---------------------------------------------------------------------------
+def _charge() -> None:
+    budget = current_budget.get()
+    if budget is not None:
+        budget.charge("yfinance")
+
+
+async def _yf(fn):
+    try:
+        return await asyncio.to_thread(fn)
+    except DataUnavailable:
+        raise
+    except Exception as exc:  # yfinance raises many error types for gaps
+        raise DataUnavailable(f"yfinance: {exc}") from exc
+
+
+async def earnings_dates(ticker: str, limit: int = 12) -> pd.DataFrame:
+    """Past and scheduled earnings: index = report time (ET), columns
+    'EPS Estimate', 'Reported EPS', 'Surprise(%)'."""
+    _charge()
+
+    def _f():
+        import yfinance as yf
+
+        df = yf.Ticker(ticker).get_earnings_dates(limit=limit)
+        if df is None or df.empty:
+            raise DataUnavailable(f"No earnings dates for {ticker}")
+        return df.sort_index()
+
+    return await _yf(_f)
+
+
+async def analyst_actions(ticker: str) -> pd.DataFrame:
+    """Upgrades, downgrades and price-target changes; index = grade time (UTC)."""
+    _charge()
+
+    def _f():
+        import yfinance as yf
+
+        df = yf.Ticker(ticker).upgrades_downgrades
+        if df is None or df.empty:
+            raise DataUnavailable(f"No analyst actions for {ticker}")
+        return df.sort_index()
+
+    return await _yf(_f)
+
+
+async def company_calendar(ticker: str) -> dict:
+    """Next dividend / ex-dividend dates and earnings estimates."""
+    _charge()
+
+    def _f():
+        import yfinance as yf
+
+        return yf.Ticker(ticker).calendar or {}
+
+    return await _yf(_f)
+
+
+async def intraday(ticker: str, day: date, interval: str = "5m") -> pd.Series:
+    """Regular-session closes for one day, indexed by bar START time (ET).
+    Yahoo keeps 5-minute bars for about 60 days only."""
+    from zoneinfo import ZoneInfo
+
+    if (date.today() - day).days > 58:
+        raise DataUnavailable(f"Intraday bars are only kept for ~60 days ({day} is older)")
+    _charge()
+
+    def _f():
+        import yfinance as yf
+
+        h = yf.Ticker(ticker).history(
+            start=day.isoformat(), end=(day + timedelta(days=1)).isoformat(), interval=interval, prepost=False
+        )
+        if h is None or h.empty:
+            raise DataUnavailable(f"No intraday bars for {ticker} on {day}")
+        s = h["Close"].astype(float)
+        s.index = s.index.tz_convert(ZoneInfo("America/New_York"))
+        return s[s.index.date == day]
+
+    s = await _yf(_f)
+    if s.empty:
+        raise DataUnavailable(f"No intraday bars for {ticker} on {day}")
+    return s
