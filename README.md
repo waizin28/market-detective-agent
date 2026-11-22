@@ -240,7 +240,9 @@ permanent vector database; indexes are cached in memory per filing.
 
 ## Configuration
 
-All settings live in `backend/.env`. Variables exported in your shell take precedence over the file.
+Settings are read from `backend/.env` and a `.env` at the project root (`backend/.env` wins when
+both set a value). Values in these files take precedence over variables exported in your shell,
+and blank entries are ignored.
 
 | Variable | Required | Purpose / what happens without it |
 |---|---|---|
@@ -320,7 +322,8 @@ Run the unit tests with `cd backend && uv run pytest`.
 
 | Symptom | Fix |
 |---|---|
-| Top-right shows **"LLM key missing"** | Set `OPENAI_API_KEY` in `backend/.env`; the backend reloads automatically. |
+| Top-right shows **"LLM key missing"** | Set `OPENAI_API_KEY` in `backend/.env` (or a `.env` at the project root); the backend reloads automatically. |
+| `401 Incorrect API key provided` | The key being used is invalid. Keys are read from `backend/.env`, then the project-root `.env`, then shell variables. `.env` files win over `export OPENAI_API_KEY=...` in `~/.zshrc`, but an old exported key is still used if neither `.env` sets one. |
 | Top-right shows **"API offline"** | The backend isn't running on port 8000. Start `./scripts/dev-backend.sh`. |
 | `Address already in use` | Another process holds port 8000 or 5173. Find it with `lsof -i :8000` and stop it. |
 | SEC requests fail with 403 | Set `SEC_USER_AGENT` to an app name plus a real email address. |
