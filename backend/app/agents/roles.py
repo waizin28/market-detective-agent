@@ -81,7 +81,7 @@ def branches_brief(branches: list[dict], findings: list[dict] | None = None) -> 
 
 
 class LLMRoles:
-    """Production roles backed by Claude via LangChain."""
+    """Production roles backed by OpenAI (ChatGPT models) via LangChain."""
 
     def __init__(self, researcher_max_tool_calls: int = 4):
         self._max_tools = researcher_max_tool_calls

@@ -53,7 +53,7 @@ function SearchBar({ onSubmit, disabled }: { onSubmit: (q: string, date: string 
         <label className="check"><input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} /> Investigate even if the move looks normal</label>
       </div>
       {err && <div className="banner bad">{err}</div>}
-      {disabled && <div className="banner warn">The server has no ANTHROPIC_API_KEY configured. Add it to backend/.env and restart the API.</div>}
+      {disabled && <div className="banner warn">The server has no OPENAI_API_KEY configured. Add it to backend/.env and restart the API.</div>}
     </div>
   );
 }
@@ -98,7 +98,7 @@ export default function App() {
     const { case_id } = await api.createCase({ query, event_date: date, force });
     nav(`/case/${case_id}`);
   };
-  const llmReady = config?.keys.anthropic ?? false;
+  const llmReady = config?.keys.openai ?? false;
   const items: [string, string, JSX.Element][] = [
     ["home", "Investigate", <Home size={17} />],
     ["watchlist", "Watchlist", <BarChart3 size={17} />],

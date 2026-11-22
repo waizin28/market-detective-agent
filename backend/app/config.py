@@ -16,15 +16,15 @@ class Settings(BaseSettings):
     )
 
     # --- LLM -------------------------------------------------------------
-    anthropic_api_key: str | None = None
-    llm_model: str = "claude-opus-5-5"
-    # Effort per role: reasoning-heavy roles get more, extraction roles less.
+    openai_api_key: str | None = None
+    # Any OpenAI chat model id; check https://developers.openai.com/docs/models
+    llm_model: str = "gpt-6.1-sol"
+    # Reasoning effort per role: reasoning-heavy roles get more, extraction roles less.
+    # Set to "" to omit the parameter for models that don't support it.
     effort_analyst: str = "high"
     effort_critic: str = "high"
     effort_researcher: str = "medium"
     effort_coordinator: str = "medium"
-    # Server-side refusal fallback (routes a refused request to a fallback model).
-    llm_server_fallbacks: bool = True
 
     # --- Data providers ----------------------------------------------------
     alpha_vantage_api_key: str | None = None

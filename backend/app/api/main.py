@@ -82,7 +82,7 @@ async def config():
     return {
         "model": s.llm_model,
         "keys": {
-            "anthropic": bool(s.anthropic_api_key),
+            "openai": bool(s.openai_api_key),
             "alpha_vantage": bool(s.alpha_vantage_api_key),
             "newsapi": bool(s.newsapi_key),
             "fred": bool(s.fred_api_key),
@@ -100,8 +100,8 @@ async def config():
 
 @app.post("/api/cases", status_code=201)
 async def create_case(req: InvestigateRequest):
-    if not app.state.settings.anthropic_api_key:
-        raise HTTPException(400, "ANTHROPIC_API_KEY is not configured on the server (backend/.env)")
+    if not app.state.settings.openai_api_key:
+        raise HTTPException(400, "OPENAI_API_KEY is not configured on the server (backend/.env)")
     if req.event_date and req.event_date > date.today():
         raise HTTPException(400, "event_date is in the future")
     case_id = uuid.uuid4().hex[:12]

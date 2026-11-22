@@ -135,7 +135,7 @@ export function HistoryPage({ onOpen }: { onOpen: (id: string) => void }) {
 
 // ---------------------------------------------------------------- settings
 const KEY_INFO: Record<string, [string, string]> = {
-  anthropic: ["Anthropic (Claude)", "Required. Powers the coordinator, analyst, researcher and critic."],
+  openai: ["OpenAI (ChatGPT models)", "Required. Powers the coordinator, analyst, researcher and critic."],
   sec_user_agent: ["SEC EDGAR user agent", "Required by SEC fair-access rules: an app name plus contact email."],
   alpha_vantage: ["Alpha Vantage", "Optional. Primary price source; falls back to Yahoo Finance."],
   newsapi: ["NewsAPI", "Optional. Without it, only recent Yahoo Finance headlines are searched."],

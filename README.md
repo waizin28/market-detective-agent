@@ -5,7 +5,7 @@ evidence-backed case file: the move and how it compares with peers, a timestampe
 competing explanations ranked by a four-point evidence rubric, citations, and an explicit account
 of what remains uncertain.
 
-Built with **LangGraph + LangChain** (Claude via `langchain-anthropic`), **FastAPI**, and a
+Built with **LangGraph + LangChain** (OpenAI ChatGPT models via `langchain-openai`), **FastAPI**, and a
 **React** dashboard. It implements the CMU AGT capstone design from Weeks 2–6.
 
 ## Quick start
@@ -13,7 +13,7 @@ Built with **LangGraph + LangChain** (Claude via `langchain-anthropic`), **FastA
 ```bash
 # 1. Backend (Python 3.11+, uv)
 cd backend
-cp .env.example .env            # add ANTHROPIC_API_KEY and SEC_USER_AGENT (others optional)
+cp .env.example .env            # add OPENAI_API_KEY and SEC_USER_AGENT (others optional)
 uv sync
 uv run uvicorn app.api.main:app --reload --port 8000
 
@@ -27,7 +27,7 @@ The first filing search downloads the `all-MiniLM-L6-v2` embedding model (~90 MB
 
 | Key | Required | Without it |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | yes | investigations can't start (the watchlist scan still works) |
+| `OPENAI_API_KEY` | yes | investigations can't start (the watchlist scan still works) |
 | `SEC_USER_AGENT` | yes | SEC asks for an app name + contact email |
 | `ALPHA_VANTAGE_API_KEY` | no | prices come from Yahoo Finance (yfinance) |
 | `NEWSAPI_KEY` | no | only recent Yahoo headlines are searched (older events get little news) |
@@ -62,7 +62,7 @@ disconfirming check per finalist. At most 10 evidence checks per case.
 
 **What the LLM decides vs. what Python enforces:**
 
-| LLM (Claude) | Python (deterministic, `app/analysis/`) |
+| LLM (OpenAI) | Python (deterministic, `app/analysis/`) |
 |---|---|
 | propose / refine hypotheses, plan challenges | returns, z-scores, beta, abnormal return, scope |
 | choose tools and summarize findings | evidence ids, timestamps, timing classification |
@@ -102,7 +102,7 @@ backend/app/
   data/                http cache + budget, market (Alpha Vantage/yfinance), SEC EDGAR, news, FRED
   analysis/            anomaly stats, timing classifier, rubric scoring + verdict rules
   retrieval/           section-aware chunking + semantic search over filings
-  agents/              prompts, roles, read-only tools, evidence ledger, Claude model factory
+  agents/              prompts, roles, read-only tools, evidence ledger, OpenAI model factory
   graph/               LangGraph state, nodes, builder, injected dependencies
   api/                 FastAPI app, SSE run manager, SQLite store
 frontend/src/

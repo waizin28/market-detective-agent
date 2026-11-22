@@ -1,30 +1,26 @@
-"""Chat model factory.
+"""Chat model factory (OpenAI via langchain-openai).
 
-Notes for Claude Opus 5.5 (the default model):
-* Thinking is adaptive and cannot be disabled; depth is set with ``effort``.
-* Forced ``tool_choice`` is rejected, so structured output must use
-  ``method="json_schema"`` (native ``output_config.format``), never the default
-  tool-forcing method.
-* ``temperature`` is not accepted, so it is never set.
-* Server-side refusal fallback is enabled by default.
+* Structured output uses OpenAI's native strict JSON schema
+  (``method="json_schema", strict=True``), so responses always match the
+  Pydantic models the graph expects.
+* Reasoning depth per role is set with ``reasoning_effort``; ``temperature``
+  is left unset (reasoning models reject it).
 """
 
 from __future__ import annotations
 
 from functools import lru_cache
 
-from langchain_anthropic import ChatAnthropic
+from langchain_openai import ChatOpenAI
 
 from app.config import get_settings
 
-FALLBACK_BETA = "server-side-fallback-2026-07-01"
-
 
 @lru_cache(maxsize=8)
-def chat_model(role: str) -> ChatAnthropic:
+def chat_model(role: str) -> ChatOpenAI:
     s = get_settings()
-    if not s.anthropic_api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY is not set (add it to backend/.env)")
+    if not s.openai_api_key:
+        raise RuntimeError("OPENAI_API_KEY is not set (add it to backend/.env)")
     effort = {
         "analyst": s.effort_analyst,
         "critic": s.effort_critic,
@@ -32,19 +28,16 @@ def chat_model(role: str) -> ChatAnthropic:
         "coordinator": s.effort_coordinator,
     }.get(role, "medium")
     kwargs: dict = {}
-    if s.llm_server_fallbacks:
-        kwargs["betas"] = [FALLBACK_BETA]
-        kwargs["model_kwargs"] = {"fallbacks": "default"}
-    return ChatAnthropic(
+    if effort:
+        kwargs["reasoning_effort"] = effort
+    return ChatOpenAI(
         model=s.llm_model,
-        api_key=s.anthropic_api_key,
-        reasoning_effort=effort,
-        max_tokens=16000,
+        api_key=s.openai_api_key,
         max_retries=3,
-        default_request_timeout=300,
+        request_timeout=300,
         **kwargs,
     )
 
 
 def structured(role: str, schema: type):
-    return chat_model(role).with_structured_output(schema, method="json_schema")
+    return chat_model(role).with_structured_output(schema, method="json_schema", strict=True)
