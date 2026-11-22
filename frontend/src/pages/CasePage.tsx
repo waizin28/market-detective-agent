@@ -134,7 +134,7 @@ export function CasePage({ caseId }: { caseId: string }) {
             <div className="card">
               <div className="card-h">
                 <h3>What led up to the move</h3>
-                <span className="sub">{c.ticker} developments over the prior month, public before the close</span>
+                <span className="sub">{c.ticker} news from the week before{c.anomaly ? ` ${c.anomaly.event_date}` : ""}, public before the close</span>
                 <div className="spacer" />
                 <button className="btn sm" onClick={() => setTab("evidence")}>All evidence →</button>
               </div>

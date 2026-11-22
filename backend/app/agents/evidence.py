@@ -41,6 +41,19 @@ def price_history_url(ticker: str) -> str:
     return f"https://finance.yahoo.com/quote/{ticker}/history/"
 
 
+def in_news_window(e: dict, event_date: date, days: int = 7) -> bool:
+    """Non-news items always pass. News passes when published (in ET) from ``days``
+    before ``event_date`` through the end of ``event_date``."""
+    if e.get("kind") != "news":
+        return True
+    try:
+        dt = datetime.fromisoformat(e["published_at"])
+        d = dt.astimezone(ET).date() if dt.tzinfo else dt.date()
+    except (KeyError, TypeError, ValueError):
+        return False
+    return event_date - timedelta(days=days) <= d <= event_date
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 

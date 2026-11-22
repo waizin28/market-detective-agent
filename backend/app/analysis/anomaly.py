@@ -5,7 +5,9 @@ All numbers in the case file come from here, not from the LLM.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
+
+from app.analysis.timing import ET, MARKET_CLOSE
 
 import numpy as np
 import pandas as pd
@@ -28,12 +30,39 @@ def zscores(returns: pd.Series, lookback: int) -> pd.DataFrame:
     return out.dropna()
 
 
-def pick_event_date(z: pd.DataFrame, scan_days: int, requested: date | None) -> pd.Timestamp:
+def _completed(z: pd.DataFrame, now: datetime | None) -> pd.DataFrame:
+    """Drop today's bar while the market is still open: its 'close' isn't final yet."""
+    now = (now or datetime.now(ET)).astimezone(ET)
+    if len(z) and z.index[-1].date() == now.date() and now.time() < MARKET_CLOSE:
+        return z.iloc[:-1]
+    return z
+
+
+def pick_event_date(
+    z: pd.DataFrame,
+    scan_days: int,
+    requested: date | None,
+    *,
+    default: str = "latest",
+    now: datetime | None = None,
+) -> pd.Timestamp:
+    """The trading day to analyze.
+
+    * ``requested``: that day, or the last trading day on/before it (weekends, holidays).
+    * otherwise ``default="latest"``: the most recent completed trading day (what a user
+      asking "why did it move?" means); ``"largest"``: the biggest |z| in the last
+      ``scan_days`` days (used by the watchlist scanner).
+    """
+    z = _completed(z, now)
+    if z.empty:
+        raise ValueError("No completed trading day with a baseline yet")
     if requested is not None:
         eligible = z.index[z.index <= pd.Timestamp(requested)]
         if len(eligible) == 0:
             raise ValueError(f"Not enough history before {requested} to compute a baseline")
         return eligible[-1]
+    if default == "latest":
+        return z.index[-1]
     recent = z.tail(scan_days)
     return recent["z"].abs().idxmax()
 
@@ -47,6 +76,7 @@ def compute_anomaly(
     z_threshold: float,
     scan_days: int,
     requested_date: date | None = None,
+    default: str = "latest",
 ) -> Anomaly:
     """``benchmarks`` maps ticker -> (role, history) with role in market/sector/peer."""
     issues: list[str] = []
@@ -54,7 +84,7 @@ def compute_anomaly(
     z = zscores(r, lookback)
     if z.empty:
         raise ValueError(f"Need at least {lookback + 2} trading days of history for {ticker}")
-    t = pick_event_date(z, scan_days, requested_date)
+    t = pick_event_date(z, scan_days, requested_date, default=default)
     if requested_date and t.date() != requested_date:
         issues.append(
             f"{requested_date} was not a trading day with data; using {t.date()} instead."
