@@ -91,7 +91,13 @@ investigation rules - do not change them, re-rank, or upgrade an explanation's s
 Write for an investor or market researcher:
 * Distinguish verified observations (numbers, documented events) from plausible but
   unestablished explanations. Never present a co-occurring event as the proven cause.
-* If the verdict is unresolved, say so plainly and explain what is missing.
+* `why_it_moved` is the first thing the reader sees: answer "why did it go up/down?"
+  directly. Lead with the direction and size, then how much was a sector/market-wide move
+  (compare with the sector ETF, peers and SPY) versus company-specific, then the driver(s)
+  the evidence best supports. Same-day news coverage published before the close counts as
+  evidence of what was public. If the verdict is unresolved, still name the best-supported
+  driver but label it "most likely, not confirmed" and say what is missing - never leave the
+  reader with only "unresolved".
 * A rubric score of 3/4 is not a 75% probability.
 * Cite evidence ids for factual claims. Don't give investment advice or price targets.
 

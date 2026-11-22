@@ -18,7 +18,7 @@ from langgraph.types import Send, interrupt
 
 from app.agents.evidence import CaseContext, Ledger, evidence_id, now_iso
 from app.analysis.anomaly import compute_anomaly, price_points
-from app.analysis.scoring import decide_verdict, score_branch, select_beam
+from app.analysis.scoring import decide_verdict, rank_key, score_branch, select_beam
 from app.analysis.timing import market_close
 from app.config import get_settings
 from app.data.http import BudgetExceeded, DataUnavailable
@@ -248,6 +248,9 @@ async def build_timeline(state: CaseState, runtime: Runtime[Deps]) -> dict:
     tasks = {
         "filings": ledger.filings(s.filings_lookback_days, 2),
         "news": ledger.news(query, s.news_lookback_days, 1, limit=15),
+        # Same-day market coverage ("why X stock fell") is usually the most
+        # direct record of what traders were reacting to.
+        "move_news": ledger.news(f'"{state["short_name"]}" stock', 1, 1, limit=12),
     }
     if deps.fred.available:
         tasks["macro"] = ledger.macro()
@@ -407,6 +410,23 @@ async def controller(state: CaseState, runtime: Runtime[Deps]) -> dict:
         state["branches"], round_no=rnd, beam_width=s.beam_width, prune_below=s.prune_below_score
     )
     updates = {}
+    # If every branch fell below the pruning bar only because evidence was
+    # *missing* (not contradicted), keep the best ones provisionally so the
+    # refine round can look again with sharper checks.
+    provisional: list[str] = []
+    if not keep and rnd < s.max_rounds:
+        candidates = sorted(
+            (state["branches"][i] for i, r in pruned.items() if r != "ruled_out"), key=rank_key
+        )
+        provisional = [b["id"] for b in candidates[: s.beam_width]]
+        for bid in provisional:
+            pruned.pop(bid)
+            b = dict(state["branches"][bid])
+            b["notes"] = b["notes"] + [
+                f"Round {rnd}: kept provisionally - low score reflects missing evidence, not contradiction"
+            ]
+            updates[bid] = b
+        keep = provisional
     for bid, reason in pruned.items():
         b = dict(state["branches"][bid])
         b["status"] = "ruled_out" if reason == "ruled_out" else "pruned"
@@ -505,6 +525,7 @@ async def write_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
         log.exception("report narrative failed")
         narrative = ReportNarrative(
             headline=f"{state['ticker']} {state['anomaly']['ret']:+.2%} move on {state['anomaly']['event_date']}",
+            why_it_moved="",
             summary=f"The narrative could not be generated ({exc}). Scores and evidence below are complete.",
             explanations=[],
             uncertainties=[],
@@ -531,7 +552,9 @@ async def write_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
     )
     report = {
         "headline": narrative.headline,
+        "why_it_moved": narrative.why_it_moved,
         "summary": narrative.summary,
+        "rounds_run": state.get("round") or 0,
         "verdict": verdict,
         "explanations": explanations,
         "uncertainties": narrative.uncertainties,

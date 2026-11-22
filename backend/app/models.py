@@ -186,6 +186,15 @@ class ExplanationNarrative(BaseModel):
 
 class ReportNarrative(BaseModel):
     headline: str = Field(description="One line, neutral, no investment advice.")
+    why_it_moved: str = Field(
+        description=(
+            "2-4 sentences answering 'why did the stock go up/down?' for the reader. State the "
+            "direction and size, how much of the move was shared with the sector/market vs. "
+            "company-specific, and the most likely driver(s) the evidence points to - clearly "
+            "labeled as 'established' (leading explanation) or 'most likely but not confirmed' "
+            "(unresolved). Cite evidence ids."
+        )
+    )
     summary: str = Field(description="One paragraph summary that cites evidence ids.")
     explanations: list[ExplanationNarrative]
     uncertainties: list[str]
