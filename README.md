@@ -141,6 +141,9 @@ checks it runs.
 
 ## How it works
 
+Full diagrams (system overview, investigation graph, request sequence, LLM vs. code):
+[`docs/architecture.md`](docs/architecture.md).
+
 ### The investigation graph
 
 The workflow is a LangGraph `StateGraph`. State is checkpointed to SQLite after every step, so a
