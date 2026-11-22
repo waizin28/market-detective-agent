@@ -5,8 +5,9 @@ import { CATEGORY_LABEL, SCOPE_LABEL, money, pct } from "../lib/format";
 import { etDate, etTime, leadUpRows } from "../components/CasePanels";
 
 const VERDICT: Record<string, string> = {
-  leading: "Leading explanation found",
-  unresolved: "Unresolved: no explanation met the bar",
+  leading: "Cause identified",
+  unresolved: "Move confirmed · cause not proven",
+  shared_move: "Mostly a shared (sector/market) move",
   needs_review: "Needs review",
   no_anomaly: "Normal trading day",
 };

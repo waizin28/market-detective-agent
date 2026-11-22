@@ -26,7 +26,7 @@ type OnCite = (id: string) => void;
 
 // ---------------------------------------------------------------- verdict
 /** Deterministic, number-only read of the move: how much was shared with the sector/market. */
-function moveBreakdown(c: CaseView): string | null {
+function moveBreakdown(c: CaseView, withShare = true): string | null {
   const a = c.anomaly;
   if (!a) return null;
   const dir = a.ret < 0 ? "fell" : "rose";
@@ -40,7 +40,9 @@ function moveBreakdown(c: CaseView): string | null {
   if (peers.length) ctx.push(`peers ${peers.map((p) => `${p.ticker} ${pct(p.ret!)}`).join(", ")}`);
   if (market) ctx.push(`the S&P 500 (${market.ticker}) ${pct(market.ret!)}`);
   if (ctx.length) parts.push(`Same day: ${ctx.join("; ")}.`);
-  if (sector && same(sector.ret!) && Math.abs(a.ret) > 0) {
+  if (!withShare) {
+    // the split bar shows the shares
+  } else if (sector && same(sector.ret!) && Math.abs(a.ret) > 0) {
     const share = Math.min(1, Math.abs(sector.ret!) / Math.abs(a.ret));
     parts.push(
       share >= 0.6
@@ -66,10 +68,47 @@ export function VerdictBadge({ c }: { c: CaseView }) {
   if (c.status === "error") return <span className="pill bad"><XCircle size={13} /> Failed</span>;
   if (c.status === "waiting_for_input") return <span className="pill warn"><CircleHelp size={13} /> Needs your input</span>;
   if (!v) return <span className="pill blue"><CircleDashed size={13} className="spin" /> Investigating</span>;
-  if (v === "leading") return <span className="pill good"><CheckCircle2 size={13} /> Leading explanation</span>;
-  if (v === "needs_review") return <span className="pill warn"><ShieldAlert size={13} /> Needs analyst review</span>;
-  if (v === "no_anomaly") return <span className="pill gray"><CheckCircle2 size={13} /> No unusual move</span>;
-  return <span className="pill warn"><CircleHelp size={13} /> Cause unresolved</span>;
+  if (v === "leading") return <span className="pill good"><CheckCircle2 size={13} /> Cause identified</span>;
+  if (v === "needs_review") return <span className="pill warn"><ShieldAlert size={13} /> Cause found · needs review</span>;
+  if (v === "no_anomaly") return <span className="pill gray"><CheckCircle2 size={13} /> Normal trading day</span>;
+  const shared = sharedScope(c);
+  if (shared) return <span className="pill blue"><CheckCircle2 size={13} /> Mostly a {shared}-wide move</span>;
+  return <span className="pill warn"><CircleHelp size={13} /> Move confirmed · cause not proven</span>;
+}
+
+/** "sector" / "market" when prices show most of the move was shared (also for older cases). */
+export function sharedScope(c: CaseView): "sector" | "market" | null {
+  const v = c.report?.verdict?.status;
+  const scope = c.report?.verdict?.breakdown?.scope ?? c.anomaly?.scope;
+  if (v !== "shared_move" && v !== "unresolved") return null;
+  return scope === "sector_wide" ? "sector" : scope === "market_wide" ? "market" : null;
+}
+
+/** Split of the day's move: shared with the sector (or market) vs specific to the stock. */
+export function MoveSplit({ c }: { c: CaseView }) {
+  const a = c.anomaly;
+  if (!a || !a.ret) return null;
+  const ref = a.scope === "market_wide"
+    ? a.benchmarks.find((b) => b.role === "market" && b.ret != null)
+    : a.benchmarks.find((b) => b.role === "sector" && b.ret != null) ?? a.benchmarks.find((b) => b.role === "market" && b.ret != null);
+  if (!ref) return null;
+  const share = Math.max(0, Math.min(1, ref.ret! / a.ret));
+  const specific = a.ret - (share > 0 ? ref.ret! : 0);
+  const what = ref.role === "market" ? "the market" : "its sector";
+  return (
+    <div className="split-bar-wrap">
+      <div className="split-bar" role="img" aria-label={`${Math.round(share * 100)}% shared with ${ref.ticker}, ${Math.round((1 - share) * 100)}% specific to ${a.ticker}`}>
+        {share > 0 && <div className="seg shared" style={{ width: `${share * 100}%` }} />}
+        {share < 1 && <div className="seg own" style={{ width: `${(1 - share) * 100}%` }} />}
+      </div>
+      <div className="split-legend">
+        <span><i className="shared" /> <b>{Math.round(share * 100)}%</b> shared with {what} ({ref.ticker} {pct(ref.ret!)})</span>
+        {ref.ret! / a.ret > 1
+          ? <span><i className="own" /> {a.ticker} {a.ret < 0 ? "fell" : "rose"} less than {ref.ticker} ({pct(a.ret - ref.ret!)} relative)</span>
+          : <span><i className="own" /> <b>{Math.round((1 - share) * 100)}%</b> specific to {a.ticker} ({pct(specific)})</span>}
+      </div>
+    </div>
+  );
 }
 
 export function VerdictCard({ c, onCite, onInvestigate }: { c: CaseView; onCite: OnCite; onInvestigate?: (ticker: string, date: string) => void }) {
@@ -83,7 +122,7 @@ export function VerdictCard({ c, onCite, onInvestigate }: { c: CaseView; onCite:
   const shown = top ?? best;
   const support = shown?.score?.supporting_ids ?? [];
   const contra = shown?.score?.contradicting_ids ?? [];
-  const breakdown = moveBreakdown(c);
+  const breakdown = moveBreakdown(c, r?.verdict.status === "no_anomaly" || !r);
   const evById = useMemo(() => new Map(c.evidence.map((e) => [e.id, e])), [c.evidence]);
 
   return (
@@ -111,7 +150,17 @@ export function VerdictCard({ c, onCite, onInvestigate }: { c: CaseView; onCite:
               ? <CitedText text={r.why_it_moved} onCite={onCite} known={known} />
               : <CitedText text={r.summary} onCite={onCite} known={known} />}
           </p>
-          {breakdown && <p className="sub" style={{ marginTop: -4 }}><BarChart3 size={12} /> {breakdown}</p>}
+          {r.verdict.status !== "no_anomaly" && <MoveSplit c={c} />}
+          {breakdown && <p className="sub" style={{ marginTop: 4 }}><BarChart3 size={12} /> {breakdown}</p>}
+        </>
+      )}
+      {r && !top && sharedScope(c) && (
+        <>
+          <div className="section-label good"><CheckCircle2 size={13} /> Established by prices</div>
+          <p className="verdict-text">
+            Most of this {c.anomaly && c.anomaly.ret < 0 ? "drop" : "rise"} was {sharedScope(c)}-wide: comparable stocks moved the same way on the same day.
+            That part doesn't need a company-specific explanation.
+          </p>
         </>
       )}
       {r && top && (
@@ -125,7 +174,7 @@ export function VerdictCard({ c, onCite, onInvestigate }: { c: CaseView; onCite:
       )}
       {r && !top && best && r.verdict.status !== "no_anomaly" && (
         <>
-          <div className="section-label warn"><CircleHelp size={13} /> Most likely, not confirmed · {best.score?.total ?? 0}/4</div>
+          <div className="section-label warn"><CircleHelp size={13} /> {sharedScope(c) ? "Best lead on what drove it, not confirmed" : "Most likely cause, not confirmed"} · {best.score?.total ?? 0}/4</div>
           <p className="verdict-text">
             <strong>{best.title}.</strong> <CitedText text={best.narrative || best.statement} onCite={onCite} known={known} />
           </p>

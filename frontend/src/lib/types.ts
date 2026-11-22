@@ -111,7 +111,11 @@ export interface Explanation {
 }
 
 export interface Verdict {
-  status: "leading" | "unresolved" | "needs_review" | "no_anomaly";
+  status: "leading" | "unresolved" | "needs_review" | "no_anomaly" | "shared_move";
+  breakdown?: {
+    scope: string; ret: number; benchmark: string | null; benchmark_role?: string;
+    benchmark_ret?: number; shared_share?: number; specific_ret?: number;
+  } | null;
   leading_ids: string[];
   withheld_ids?: string[];
   ranks: Record<string, number>;

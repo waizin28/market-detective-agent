@@ -385,3 +385,14 @@ body.print-mode { background: #fff; color: #14213d; color-scheme: light; }
   .cf { padding: 0; max-width: none; }
   @page { margin: 14mm; }
 }
+
+/* ---------------------------------------------------------------- move split */
+.split-bar-wrap { margin: 10px 0 2px; }
+.split-bar { display: flex; gap: 2px; height: 10px; border-radius: 5px; overflow: hidden; background: var(--panel-2); }
+.split-bar .seg.shared { background: var(--s-sector); }
+.split-bar .seg.own { background: var(--s-stock); }
+.split-legend { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; font-size: 12.5px; color: var(--text-2); }
+.split-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.split-legend i.shared { background: var(--s-sector); }
+.split-legend i.own { background: var(--s-stock); }
+.split-legend b { color: var(--text); }

@@ -92,8 +92,9 @@ export function WatchlistPage({ onInvestigate }: { onInvestigate: (t: string, da
 
 // ---------------------------------------------------------------- history
 const VERDICT_PILL: Record<string, [string, string]> = {
-  leading: ["good", "Leading explanation"],
-  unresolved: ["warn", "Unresolved"],
+  leading: ["good", "Cause identified"],
+  unresolved: ["warn", "Cause not proven"],
+  shared_move: ["blue", "Sector/market move"],
   needs_review: ["warn", "Needs review"],
   no_anomaly: ["gray", "No unusual move"],
 };
