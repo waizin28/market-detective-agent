@@ -4,9 +4,21 @@ import type { Evidence, Interrupt } from "../lib/types";
 import { dateTime } from "../lib/format";
 import { TimingPill } from "./CasePanels";
 
+/** Where the information comes from. Computed items point at the public price history they derive from. */
+export function sourceUrl(ev: Evidence): string | null {
+  if (ev.url) return ev.url;
+  if (ev.kind === "market_data" || ev.kind === "computed") {
+    const t = (ev.meta?.ticker as string | undefined) ?? ev.title.split(" ")[0];
+    if (/^[A-Z.\-^]{1,10}$/.test(t)) return `https://finance.yahoo.com/quote/${t}/history/`;
+  }
+  return null;
+}
+
 export function EvidenceDrawer({ ev, onClose }: { ev: Evidence | null; onClose: () => void }) {
   if (!ev) return null;
-  const meta = Object.entries(ev.meta || {}).filter(([k]) => !["primary_document", "cik"].includes(k));
+  const meta = Object.entries(ev.meta || {}).filter(([k]) => !["primary_document", "cik", "publisher_site"].includes(k));
+  const url = sourceUrl(ev);
+  const site = ev.meta?.publisher_site as string | undefined;
   return (
     <div className="overlay" onClick={onClose}>
       <aside className="drawer" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Evidence detail">
@@ -37,14 +49,24 @@ export function EvidenceDrawer({ ev, onClose }: { ev: Evidence | null; onClose: 
           <tbody>
             <tr><td>Published</td><td>{dateTime(ev.published_at)}{ev.date_only ? " (date only)" : ""}</td></tr>
             <tr><td>Retrieved</td><td>{dateTime(ev.retrieved_at)}</td></tr>
+            <tr>
+              <td>Source URL</td>
+              <td style={{ wordBreak: "break-all", textAlign: "right" }}>
+                {url ? <a href={url} target="_blank" rel="noreferrer" className="src-link">{url}</a> : <span className="sub">none (derived by Market Detective)</span>}
+                {ev.kind === "computed" && url && <div className="sub">Calculated from the daily closes at this page.</div>}
+              </td>
+            </tr>
+            {site && (
+              <tr><td>Publisher</td><td style={{ textAlign: "right" }}><a href={site} target="_blank" rel="noreferrer" className="src-link">{ev.source} · {site.replace(/^https?:\/\//, "")}</a></td></tr>
+            )}
             {meta.map(([k, v]) => (
               <tr key={k}><td>{k.replace("_", " ")}</td><td className="mono" style={{ fontSize: 12 }}>{Array.isArray(v) ? v.join(", ") : String(v)}</td></tr>
             ))}
           </tbody>
         </table>
         {ev.snippet && <pre>{ev.snippet}</pre>}
-        {ev.url && (
-          <a href={ev.url} target="_blank" rel="noreferrer" className="btn sm" style={{ marginTop: 10 }}>
+        {url && (
+          <a href={url} target="_blank" rel="noreferrer" className="btn sm" style={{ marginTop: 10 }}>
             <ExternalLink size={14} /> Open source
           </a>
         )}

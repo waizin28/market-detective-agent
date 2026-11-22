@@ -123,6 +123,7 @@ export interface Report {
   why_it_moved?: string;
   summary: string;
   rounds_run?: number;
+  key_events?: { evidence_id: string; headline?: string; brief: string }[];
   verdict: Verdict;
   explanations: Explanation[];
   uncertainties: string[];

@@ -10,13 +10,13 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from langgraph.config import get_stream_writer
 from langgraph.runtime import Runtime
 from langgraph.types import Send, interrupt
 
-from app.agents.evidence import CaseContext, Ledger, evidence_id, now_iso
+from app.agents.evidence import CaseContext, Ledger, evidence_id, now_iso, price_history_url
 from app.analysis.anomaly import compute_anomaly, price_points
 from app.analysis.scoring import decide_verdict, rank_key, score_branch, select_beam
 from app.analysis.timing import market_close
@@ -218,6 +218,7 @@ async def build_timeline(state: CaseState, runtime: Runtime[Deps]) -> dict:
             kind="computed",
             title=f"{state['ticker']} {a['ret']:+.2%} on {a['event_date']} (z {a['z_score']:+.2f})",
             source="Market Detective anomaly detector",
+            url=price_history_url(state["ticker"]),
             published_at=close_iso,
             retrieved_at=now_iso(),
             timing="during",
@@ -236,6 +237,7 @@ async def build_timeline(state: CaseState, runtime: Runtime[Deps]) -> dict:
                 kind="market_data",
                 title=f"{b['ticker']} ({b['role']}) daily return on {a['event_date']}: {b['ret']:+.2%}",
                 source="market data",
+                url=price_history_url(b["ticker"]),
                 published_at=close_iso,
                 retrieved_at=now_iso(),
                 timing="during",
@@ -247,11 +249,15 @@ async def build_timeline(state: CaseState, runtime: Runtime[Deps]) -> dict:
     query = f'"{state["short_name"]}" OR {state["ticker"]}'
     tasks = {
         "filings": ledger.filings(s.filings_lookback_days, 2),
-        "news": ledger.news(query, s.news_lookback_days, 1, limit=15),
         # Same-day market coverage ("why X stock fell") is usually the most
         # direct record of what traders were reacting to.
         "move_news": ledger.news(f'"{state["short_name"]}" stock', 1, 1, limit=12),
     }
+    # Wide timeline: search the lead-up week by week so older developments
+    # (earnings, leadership changes, regulatory news) aren't crowded out by
+    # the most recent headlines.
+    for wk, start in enumerate(range(7, s.news_lookback_days + 1, 7)):
+        tasks[f"news_week_{wk}"] = ledger.news(query, start, -(start - 7) + (1 if start == 7 else 0), limit=10)
     if deps.fred.available:
         tasks["macro"] = ledger.macro()
     results = await asyncio.gather(*tasks.values(), return_exceptions=True)
@@ -502,6 +508,13 @@ async def plan_challenges(state: CaseState, runtime: Runtime[Deps]) -> dict:
 # ===========================================================================
 # 8. Coordinator: case file
 # ===========================================================================
+def _published_ts(e: dict) -> float:
+    try:
+        return datetime.fromisoformat(e["published_at"]).timestamp()
+    except (KeyError, TypeError, ValueError):
+        return float("inf")
+
+
 async def write_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
     deps, s = runtime.context, runtime.context.settings
     verdict = decide_verdict(state["branches"], s.leading_min_score)
@@ -526,12 +539,26 @@ async def write_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
         narrative = ReportNarrative(
             headline=f"{state['ticker']} {state['anomaly']['ret']:+.2%} move on {state['anomaly']['event_date']}",
             why_it_moved="",
+            key_events=[],
             summary=f"The narrative could not be generated ({exc}). Scores and evidence below are complete.",
             explanations=[],
             uncertainties=[],
             next_steps=[],
         )
     narr = {e.branch_id: e.narrative for e in narrative.explanations}
+    # Key events: only company news/filings public by the close, ids that exist.
+    ev = state["evidence"]
+    key_events = sorted(
+        (
+            {"evidence_id": k.evidence_id, "headline": k.headline, "brief": k.brief}
+            for k in {k.evidence_id: k for k in narrative.key_events}.values()  # de-dupe ids
+            if k.evidence_id in ev
+            and ev[k.evidence_id]["kind"] in ("news", "sec_filing")
+            and ev[k.evidence_id]["timing"] in ("before", "during")
+        ),
+        # Parse: published_at strings mix UTC (news) and ET (filings) offsets.
+        key=lambda k: _published_ts(ev[k["evidence_id"]]),
+    )
     explanations = sorted(
         (
             {
@@ -555,6 +582,7 @@ async def write_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
         "why_it_moved": narrative.why_it_moved,
         "summary": narrative.summary,
         "rounds_run": state.get("round") or 0,
+        "key_events": key_events,
         "verdict": verdict,
         "explanations": explanations,
         "uncertainties": narrative.uncertainties,

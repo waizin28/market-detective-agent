@@ -31,6 +31,7 @@ class Article:
     url: str | None
     published_at: datetime | None
     description: str
+    site: str | None = None  # publisher's homepage, e.g. https://www.reuters.com
 
 
 class News:
@@ -74,6 +75,7 @@ class News:
             raise DataUnavailable("Google News returned invalid RSS") from exc
         out = []
         for it in root.findall(".//item")[: limit * 2]:
+            src_el = it.find("source")
             publisher = (it.findtext("source") or "").strip() or "Google News"
             title = (it.findtext("title") or "").strip()
             suffix = f" - {publisher}"
@@ -88,7 +90,7 @@ class News:
             if desc.startswith(title):  # the RSS description usually repeats the title
                 desc = ""
             out.append(Article(title=title, source=publisher, url=it.findtext("link"), published_at=pub,
-                               description=desc))
+                               description=desc, site=src_el.get("url") if src_el is not None else None))
         return out
 
     async def _newsapi(self, query: str, start: date, end: date, limit: int) -> list[Article]:

@@ -12,6 +12,7 @@ import {
   Findings,
   FollowUp,
   HypothesisTree,
+  LeadUpTimeline,
   MetricsRow,
   NextSteps,
   RoundProgress,
@@ -132,10 +133,12 @@ export function CasePage({ caseId }: { caseId: string }) {
             </div>
             <div className="card">
               <div className="card-h">
-                <h3>Event timeline</h3><div className="spacer" />
-                <button className="btn sm" onClick={() => setTab("evidence")}>View all →</button>
+                <h3>What led up to the move</h3>
+                <span className="sub">{c.ticker} developments over the prior month, public before the close</span>
+                <div className="spacer" />
+                <button className="btn sm" onClick={() => setTab("evidence")}>All evidence →</button>
               </div>
-              <Timeline c={c} onOpen={setOpen} limit={6} />
+              <LeadUpTimeline c={c} onOpen={setOpen} limit={10} />
             </div>
             <FollowUp c={c} onAsk={ask} busy={asking} onCite={onCite} />
           </>

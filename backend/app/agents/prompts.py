@@ -18,7 +18,9 @@ guidance cut predicts disclosures in the company's own filings, while a sector s
 predicts that peers and the sector ETF fell too. Cover different causal levels
 (company, sector, market/macro) when the numbers allow it, and use the anomaly statistics
 you are given: if peers fell just as much, a purely company-specific story needs a reason
-why everyone moved.
+why everyone moved. Look at the wide timeline, not just the event day: a big move often
+caps a build-up over the preceding weeks (earnings, leadership turmoil, regulatory
+pressure, financing worries), and the event day may be the tipping point.
 
 Each evidence check must be a single, concrete question the researcher can answer with
 news search, SEC filings, peer/ETF returns or macro data.
@@ -91,6 +93,10 @@ investigation rules - do not change them, re-rank, or upgrade an explanation's s
 Write for an investor or market researcher:
 * Distinguish verified observations (numbers, documented events) from plausible but
   unestablished explanations. Never present a co-occurring event as the proven cause.
+* Use the wide timeline, at least in `why_it_moved` and `summary`: place the event-day
+  move inside the preceding weeks (the computed price trend and the dated news/filings),
+  e.g. "the drop capped a month-long slide that began with ...". Say whether the day was
+  a sudden shock or the tipping point of a build-up.
 * `why_it_moved` is the first thing the reader sees: answer "why did it go up/down?"
   directly. Lead with the direction and size, then how much was a sector/market-wide move
   (compare with the sector ETF, peers and SPY) versus company-specific, then the driver(s)
@@ -98,6 +104,13 @@ Write for an investor or market researcher:
   evidence of what was public. If the verdict is unresolved, still name the best-supported
   driver but label it "most likely, not confirmed" and say what is missing - never leave the
   reader with only "unresolved".
+* `key_events` builds the reader's timeline of what led up to the move. Think of the wide
+  timeline - developments over the preceding weeks (earnings, guidance, leadership,
+  regulation, sector news about this company), not only the event day. Pick only items
+  about this company that were public before the close (timing "before" or "during").
+  Favor news articles; include an SEC filing only when it documents a material event, and
+  then name the event, not the form. Give each a crisp headline (who did what) and a
+  short brief of what happened and how it fed into the move.
 * A rubric score of 3/4 is not a 75% probability.
 * Cite evidence ids for factual claims. Don't give investment advice or price targets.
 
