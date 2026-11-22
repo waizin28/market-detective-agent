@@ -30,11 +30,13 @@ def build_graph(checkpointer=None):
 
     g.add_edge(START, "resolve_case")
     g.add_edge("resolve_case", "detect_anomaly")
+    # Every case gets the timeline (news, filings, peers - no LLM). Normal-range
+    # moves then get a one-call news brief instead of the full hypothesis search.
+    g.add_edge("detect_anomaly", "build_timeline")
     g.add_conditional_edges(
-        "detect_anomaly", nodes.route_after_detection, ["build_timeline", "no_anomaly_report"]
+        "build_timeline", nodes.route_after_timeline, ["propose_hypotheses", "no_anomaly_report"]
     )
     g.add_edge("no_anomaly_report", END)
-    g.add_edge("build_timeline", "propose_hypotheses")
 
     # Each planning step fans out its evidence checks in parallel.
     for planner in ("propose_hypotheses", "refine_branches", "plan_challenges"):

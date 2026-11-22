@@ -70,6 +70,8 @@ class Settings(BaseSettings):
     # Skip the challenge round when no finalist could qualify as leading anyway
     # (event documented + public before the close are prerequisites a challenge can't add).
     skip_hopeless_challenges: bool = True
+    # Normal-range moves: one coordinator call summarizes the week's news (False = no LLM).
+    brief_normal_days: bool = True
 
     # --- Retrieval ----------------------------------------------------------
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"

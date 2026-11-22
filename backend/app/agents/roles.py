@@ -161,6 +161,23 @@ class LLMRoles:
             [SystemMessage(prompts.COORDINATOR_REPORT), HumanMessage(msg)]
         )
 
+    async def brief_normal_day(self, state: dict) -> ReportNarrative:
+        """One call for a normal-range move: what the week's news says, no hypothesis search."""
+        ev_day = date.fromisoformat(state["anomaly"]["event_date"])
+        evidence = {k: v for k, v in state["evidence"].items() if in_news_window(v, ev_day, 7)}
+        msg = (
+            f"## Anomaly\n{anomaly_brief(state)}\n"
+            f"## Wide timeline: price trend into the day (computed)\n{trend_brief(state)}\n"
+            "## Verdict (fixed by the rules)\nThe move was within the stock's normal range, so no "
+            "competing explanations were tested. Explain the day and the week's news; don't claim a "
+            "cause was established. Return an empty explanations list.\n"
+            f"## Evidence (news limited to {ev_day - timedelta(days=7)} through {ev_day})\n"
+            f"{render_evidence(evidence, 300)}\n"
+        )
+        return await structured("coordinator", ReportNarrative).ainvoke(
+            [SystemMessage(prompts.COORDINATOR_REPORT), HumanMessage(msg)]
+        )
+
     async def answer(self, state: dict, question: str, history: list[dict]) -> FollowUpAnswer:
         report = state.get("report") or {}
         prior = "\n".join(f"{m['role']}: {m['content']}" for m in history[-6:])

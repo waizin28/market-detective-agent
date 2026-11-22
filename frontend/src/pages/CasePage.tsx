@@ -23,7 +23,7 @@ import { ClarifyModal, EvidenceDrawer } from "../components/Overlays";
 
 type Tab = "overview" | "hypotheses" | "evidence" | "checks" | "trace";
 
-export function CasePage({ caseId }: { caseId: string }) {
+export function CasePage({ caseId, onInvestigate }: { caseId: string; onInvestigate?: (ticker: string, date: string) => void }) {
   const [c, setC] = useState<CaseView | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
@@ -171,7 +171,7 @@ export function CasePage({ caseId }: { caseId: string }) {
       </div>
 
       <div className="col">
-        <VerdictCard c={c} onCite={onCite} />
+        <VerdictCard c={c} onCite={onCite} onInvestigate={onInvestigate} />
         <HypothesisTree c={c} onCite={onCite} />
         <NextSteps c={c} onCite={onCite} />
       </div>
