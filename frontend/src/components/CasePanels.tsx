@@ -23,6 +23,34 @@ import { CitedText } from "./Cite";
 type OnCite = (id: string) => void;
 
 // ---------------------------------------------------------------- verdict
+/** Deterministic, number-only read of the move: how much was shared with the sector/market. */
+function moveBreakdown(c: CaseView): string | null {
+  const a = c.anomaly;
+  if (!a) return null;
+  const dir = a.ret < 0 ? "fell" : "rose";
+  const sector = a.benchmarks.find((b) => b.role === "sector" && b.ret != null);
+  const market = a.benchmarks.find((b) => b.role === "market" && b.ret != null);
+  const peers = a.benchmarks.filter((b) => b.role === "peer" && b.ret != null);
+  const parts = [`${a.ticker} ${dir} ${pct(Math.abs(a.ret)).replace("+", "")} on ${a.event_date}.`];
+  const same = (x: number) => Math.sign(x) === Math.sign(a.ret);
+  const ctx: string[] = [];
+  if (sector) ctx.push(`the sector ETF ${sector.ticker} ${pct(sector.ret!)}`);
+  if (peers.length) ctx.push(`peers ${peers.map((p) => `${p.ticker} ${pct(p.ret!)}`).join(", ")}`);
+  if (market) ctx.push(`the S&P 500 (${market.ticker}) ${pct(market.ret!)}`);
+  if (ctx.length) parts.push(`Same day: ${ctx.join("; ")}.`);
+  if (sector && same(sector.ret!) && Math.abs(a.ret) > 0) {
+    const share = Math.min(1, Math.abs(sector.ret!) / Math.abs(a.ret));
+    parts.push(
+      share >= 0.6
+        ? `About ${Math.round(share * 100)}% of the move was shared with its sector, so most of it was a sector-wide move; the rest (${pct(a.excess_vs_sector ?? a.ret - sector.ret!)}) was specific to ${a.ticker}.`
+        : `Only about ${Math.round(share * 100)}% of the move was matched by its sector, so most of it was specific to ${a.ticker}.`,
+    );
+  } else if (sector) {
+    parts.push(`Its sector moved the other way, so the move was specific to ${a.ticker}.`);
+  }
+  return parts.join(" ");
+}
+
 export function VerdictBadge({ c }: { c: CaseView }) {
   const v = c.report?.verdict?.status;
   if (c.status === "error") return <span className="pill bad"><XCircle size={13} /> Failed</span>;
@@ -40,8 +68,12 @@ export function VerdictCard({ c, onCite }: { c: CaseView; onCite: OnCite }) {
   const leading = r?.explanations.filter((e) => r.verdict.leading_ids.includes(e.branch_id)) ?? [];
   const withheld = r?.explanations.filter((e) => r.verdict.withheld_ids?.includes(e.branch_id)) ?? [];
   const top = leading[0] ?? withheld[0];
-  const support = top?.score?.supporting_ids ?? [];
-  const contra = top?.score?.contradicting_ids ?? [];
+  // Unresolved: still show the best-ranked candidate, clearly labeled as unconfirmed.
+  const best = top ? undefined : r?.explanations.find((e) => e.status !== "ruled_out" && (e.score?.total ?? 0) > 0);
+  const shown = top ?? best;
+  const support = shown?.score?.supporting_ids ?? [];
+  const contra = shown?.score?.contradicting_ids ?? [];
+  const breakdown = moveBreakdown(c);
   const evById = useMemo(() => new Map(c.evidence.map((e) => [e.id, e])), [c.evidence]);
 
   return (
@@ -49,41 +81,58 @@ export function VerdictCard({ c, onCite }: { c: CaseView; onCite: OnCite }) {
       <div className="card-h"><h3>Case verdict</h3></div>
       <VerdictBadge c={c} />
       {!r && <p className="verdict-text sub">The verdict appears after the final challenge round.</p>}
+      {r && r.verdict.status !== "no_anomaly" && (
+        <>
+          <div className="section-label"><Sparkles size={13} /> Why it {c.anomaly && c.anomaly.ret < 0 ? "went down" : "went up"}</div>
+          <p className="verdict-text">
+            {r.why_it_moved
+              ? <CitedText text={r.why_it_moved} onCite={onCite} known={known} />
+              : <CitedText text={r.summary} onCite={onCite} known={known} />}
+          </p>
+          {breakdown && <p className="sub" style={{ marginTop: -4 }}><BarChart3 size={12} /> {breakdown}</p>}
+        </>
+      )}
       {r && top && (
         <>
+          <div className="section-label good"><CheckCircle2 size={13} /> {leading.length ? "Leading explanation" : "Withheld for review"}</div>
           <p className="verdict-text">
             <strong>{top.title}.</strong> <CitedText text={top.narrative || top.statement} onCite={onCite} known={known} />
           </p>
           {leading.length > 1 && <p className="sub">{leading.length} explanations are equally supported and share rank 1.</p>}
-          {support.length > 0 && (
-            <>
-              <div className="section-label good"><CheckCircle2 size={13} /> Supporting evidence</div>
-              <ul className="list">
-                {support.slice(0, 4).map((id) => (
-                  <li key={id}><CheckCircle2 size={15} color="var(--good)" />
-                    <span><button className="cite" onClick={() => onCite(id)}>{id}</button> {evById.get(id)?.title}</span></li>
-                ))}
-              </ul>
-            </>
-          )}
-          {contra.length > 0 && (
-            <>
-              <div className="section-label bad"><AlertTriangle size={13} /> Contradicting evidence</div>
-              <ul className="list">
-                {contra.slice(0, 3).map((id) => (
-                  <li key={id}><AlertTriangle size={15} color="var(--bad)" />
-                    <span><button className="cite" onClick={() => onCite(id)}>{id}</button> {evById.get(id)?.title}</span></li>
-                ))}
-              </ul>
-            </>
+        </>
+      )}
+      {r && !top && best && r.verdict.status !== "no_anomaly" && (
+        <>
+          <div className="section-label warn"><CircleHelp size={13} /> Most likely, not confirmed · {best.score?.total ?? 0}/4</div>
+          <p className="verdict-text">
+            <strong>{best.title}.</strong> <CitedText text={best.narrative || best.statement} onCite={onCite} known={known} />
+          </p>
+          {best.blockers.length > 0 && (
+            <p className="sub">Not confirmed because: {best.blockers.map((x) => x.replace(/^Not leading: /, "")).join("; ")}.</p>
           )}
         </>
       )}
-      {r && !top && r.verdict.status !== "no_anomaly" && (
-        <p className="verdict-text">
-          No explanation met the bar for a leading explanation (score ≥ 3/4, documented event, public before the
-          close, and a completed challenge). Verified observations are below; the cause remains unresolved.
-        </p>
+      {r && (top || best) && support.length > 0 && (
+        <>
+          <div className="section-label good"><CheckCircle2 size={13} /> Supporting evidence</div>
+          <ul className="list">
+            {support.slice(0, 4).map((id) => (
+              <li key={id}><CheckCircle2 size={15} color="var(--good)" />
+                <span><button className="cite" onClick={() => onCite(id)}>{id}</button> {evById.get(id)?.title}</span></li>
+            ))}
+          </ul>
+        </>
+      )}
+      {r && (top || best) && contra.length > 0 && (
+        <>
+          <div className="section-label bad"><AlertTriangle size={13} /> Contradicting evidence</div>
+          <ul className="list">
+            {contra.slice(0, 3).map((id) => (
+              <li key={id}><AlertTriangle size={15} color="var(--bad)" />
+                <span><button className="cite" onClick={() => onCite(id)}>{id}</button> {evById.get(id)?.title}</span></li>
+            ))}
+          </ul>
+        </>
       )}
       {r && r.verdict.status === "no_anomaly" && <p className="verdict-text"><CitedText text={r.summary} onCite={onCite} /></p>}
       {r && r.uncertainties.length > 0 && (
@@ -179,9 +228,15 @@ export function HypothesisTree({ c, onCite }: { c: CaseView; onCite: OnCite }) {
 }
 
 export function RoundProgress({ c }: { c: CaseView }) {
+  const done = !!c.report;
+  const rounds = c.report?.rounds_run ?? c.round;
+  const allPruned = done && c.branches.length > 0 && c.branches.every((b) => b.status === "pruned" || b.status === "ruled_out");
   return (
     <div className="progress">
-      <span>Round {Math.max(c.round, 0)}/3</span>
+      <span>
+        {done ? `Finished after round ${Math.max(rounds, 0)}/3` : `Round ${Math.max(c.round, 0)}/3`}
+        {allPruned && <span className="sub"> · every explanation was pruned</span>}
+      </span>
       <div className="meter"><div style={{ width: `${(c.checks_used / c.max_checks) * 100}%` }} /></div>
       <span>{c.checks_used}/{c.max_checks} evidence checks</span>
     </div>

@@ -1,14 +1,27 @@
-"""Financial news: NewsAPI (primary, per the design) with a yfinance headline fallback."""
+"""Financial news.
+
+Sources, merged and de-duplicated:
+* Google News RSS - keyless, date-bounded (``after:``/``before:``) search with
+  publication timestamps, covering Reuters, CNBC, Barron's, etc. This is what
+  makes same-day coverage of a move available.
+* NewsAPI - when ``NEWSAPI_KEY`` is set (its free tier lags ~24h and covers ~1 month).
+* Yahoo Finance headlines - last resort; only the most recent stories.
+"""
 
 from __future__ import annotations
 
 import asyncio
+import html
+import re
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 
 from app.data.http import CachedHttp, DataUnavailable, current_budget
 
 NEWSAPI_URL = "https://newsapi.org/v2/everything"
+GOOGLE_NEWS_RSS = "https://news.google.com/rss/search"
 
 
 @dataclass
@@ -27,16 +40,56 @@ class News:
 
     @property
     def provider(self) -> str:
-        return "NewsAPI" if self._key else "Yahoo Finance headlines"
+        return "Google News + NewsAPI" if self._key else "Google News"
 
     async def search(
         self, query: str, start: date, end: date, *, ticker: str | None = None, limit: int = 15
     ) -> list[Article]:
+        tasks = [self._google(query, start, end, limit)]
         if self._key:
-            return await self._newsapi(query, start, end, limit)
-        if ticker:
-            return await self._yfinance(ticker, start, end, limit)
-        raise DataUnavailable("No news provider configured (set NEWSAPI_KEY)")
+            tasks.append(self._newsapi(query, start, end, limit))
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        merged: list[Article] = []
+        for r in results:
+            if isinstance(r, list):
+                merged.extend(r)
+        if not merged and ticker:
+            merged = await self._yfinance(ticker, start, end, limit)
+        if not merged and all(isinstance(r, Exception) for r in results):
+            raise DataUnavailable(f"News search failed: {results[0]}")
+        return _dedupe(merged)[:limit]
+
+    async def _google(self, query: str, start: date, end: date, limit: int) -> list[Article]:
+        q = f"{query} after:{start.isoformat()} before:{(end + timedelta(days=1)).isoformat()}"
+        text = await self._http.get_text(
+            GOOGLE_NEWS_RSS,
+            source="google_news",
+            params={"q": q, "hl": "en-US", "gl": "US", "ceid": "US:en"},
+            headers={"User-Agent": "Mozilla/5.0 (research prototype)"},
+            ttl=2 * 3600,
+        )
+        try:
+            root = ET.fromstring(text)
+        except ET.ParseError as exc:
+            raise DataUnavailable("Google News returned invalid RSS") from exc
+        out = []
+        for it in root.findall(".//item")[: limit * 2]:
+            publisher = (it.findtext("source") or "").strip() or "Google News"
+            title = (it.findtext("title") or "").strip()
+            suffix = f" - {publisher}"
+            if title.endswith(suffix):  # titles carry " - Publisher"
+                title = title[: -len(suffix)]
+            try:
+                pub = parsedate_to_datetime(it.findtext("pubDate") or "")
+            except (TypeError, ValueError):
+                pub = None
+            desc = html.unescape(re.sub(r"<[^>]+>", " ", it.findtext("description") or ""))
+            desc = re.sub(r"\s+", " ", desc).strip()
+            if desc.startswith(title):  # the RSS description usually repeats the title
+                desc = ""
+            out.append(Article(title=title, source=publisher, url=it.findtext("link"), published_at=pub,
+                               description=desc))
+        return out
 
     async def _newsapi(self, query: str, start: date, end: date, limit: int) -> list[Article]:
         data = await self._http.get_json(
@@ -112,3 +165,14 @@ def _parse_iso(raw: str | None) -> datetime | None:
     except ValueError:
         return None
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _dedupe(articles: list[Article]) -> list[Article]:
+    """Drop repeats of the same headline (syndicated copies across sources)."""
+    seen, out = set(), []
+    for a in articles:
+        key = re.sub(r"[^a-z0-9]+", " ", a.title.lower()).strip()[:80]
+        if key and key not in seen:
+            seen.add(key)
+            out.append(a)
+    return out

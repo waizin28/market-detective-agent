@@ -120,7 +120,9 @@ export interface Verdict {
 
 export interface Report {
   headline: string;
+  why_it_moved?: string;
   summary: string;
+  rounds_run?: number;
   verdict: Verdict;
   explanations: Explanation[];
   uncertainties: string[];
