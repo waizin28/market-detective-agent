@@ -108,6 +108,24 @@ def score_branch(
     if assessment.independent_support and len(kinds) < 2:
         notes.append("Independence check failed: all support comes from one type of source.")
 
+    # Shared-move explanations are tested by prices, not documents: if the
+    # benchmarks really moved with the stock, price fit and independent support
+    # are established mechanically (each ticker is a separate dataset). The
+    # sector's *catalyst* still needs a document for the event/timing checks.
+    if category in ("sector_wide", "market_wide"):
+        agree = shared_movers(anomaly, category)
+        expected = "sector_wide" if category == "sector_wide" else "market_wide"
+        if scope == expected and agree:
+            if not price_fit:
+                notes.append(f"Price fit confirmed by market data: {', '.join(agree)} moved with the stock.")
+            price_fit = True
+        if scope in ("sector_wide", "market_wide") and len(agree) >= 2:
+            if not independent:
+                notes.append(f"Independent support from separate price series: {', '.join(agree)}.")
+            independent = True
+            ids = [k for k, e in evidence.items() if e["kind"] == "market_data" and (e.get("meta") or {}).get("ticker") in agree]
+            support_ids = list(dict.fromkeys(support_ids + ids))
+
     primary = sum(1 for i in set(support_ids) | set(event_ids) if evidence[i]["kind"] in PRIMARY_KINDS)
     total = int(event) + int(timing) + int(price_fit) + int(independent)
     return RubricResult(
@@ -125,6 +143,37 @@ def score_branch(
         notes=notes,
         primary_sources=primary,
     )
+
+
+def shared_movers(anomaly: dict, category: str) -> list[str]:
+    """Benchmarks that moved the same way as the stock by at least half as much."""
+    ret = anomaly.get("ret") or 0
+    roles = ("sector", "peer") if category == "sector_wide" else ("market",)
+    return [
+        b["ticker"] for b in anomaly.get("benchmarks", [])
+        if b.get("role") in roles and b.get("ret") is not None and ret and b["ret"] / ret >= 0.5
+    ]
+
+
+def move_breakdown(anomaly: dict | None) -> dict | None:
+    """How much of the move was shared with the market or sector (pure arithmetic)."""
+    if not anomaly or not anomaly.get("ret"):
+        return None
+    ret, scope = anomaly["ret"], anomaly.get("scope")
+    bm = {b["role"]: b for b in anomaly.get("benchmarks", []) if b.get("ret") is not None}
+    ref = bm.get("market") if scope == "market_wide" else bm.get("sector") or bm.get("market")
+    if not ref:
+        return {"scope": scope, "ret": ret, "benchmark": None}
+    share = max(0.0, min(1.0, ref["ret"] / ret))
+    return {
+        "scope": scope,
+        "ret": ret,
+        "benchmark": ref["ticker"],
+        "benchmark_role": ref["role"],
+        "benchmark_ret": ref["ret"],
+        "shared_share": round(share, 3),
+        "specific_ret": round(ret - ref["ret"], 5),
+    }
 
 
 def rank_key(branch: dict) -> tuple:
@@ -170,8 +219,15 @@ def qualifies_as_leading(branch: dict, min_score: int) -> tuple[bool, list[str]]
     return (not reasons), reasons
 
 
-def decide_verdict(branches: dict[str, dict], min_score: int) -> dict:
-    """Rank explanations and decide leading / unresolved. Ties share a rank."""
+def decide_verdict(branches: dict[str, dict], min_score: int, anomaly: dict | None = None) -> dict:
+    """Rank explanations and decide the verdict. Ties share a rank.
+
+    * leading: an explanation passed every check.
+    * needs_review: it did, but credible sources conflict.
+    * shared_move: nothing passed, but prices prove most of the move was
+      sector- or market-wide - an established finding in its own right.
+    * unresolved: the move is real but no cause is established.
+    """
     ranked = sorted(
         [b for b in branches.values() if b["status"] != "ruled_out"], key=rank_key
     )
@@ -202,8 +258,12 @@ def decide_verdict(branches: dict[str, dict], min_score: int) -> dict:
         ranks[b["id"]] = rank
 
     status = "leading" if leading and not needs_review else ("needs_review" if leading else "unresolved")
+    breakdown = move_breakdown(anomaly)
+    if status == "unresolved" and breakdown and breakdown["scope"] in ("sector_wide", "market_wide"):
+        status = "shared_move"
     return {
         "status": status,
+        "breakdown": breakdown,
         "leading_ids": leading if status == "leading" else [],
         "withheld_ids": leading if status == "needs_review" else [],
         "ranks": ranks,

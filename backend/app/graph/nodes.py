@@ -588,7 +588,7 @@ def _published_ts(e: dict) -> float:
 
 async def write_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
     deps, s = runtime.context, runtime.context.settings
-    verdict = decide_verdict(state["branches"], s.leading_min_score)
+    verdict = decide_verdict(state["branches"], s.leading_min_score, state.get("anomaly"))
     skipped_challenge = (
         (state.get("round") or 0) == 2
         and (state.get("checks_used") or 0) < s.max_evidence_checks
@@ -674,7 +674,8 @@ async def write_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
         "disclaimer": DISCLAIMER,
         "generated_at": now_iso(),
     }
-    label = {"leading": "leading explanation identified", "unresolved": "cause unresolved",
+    label = {"leading": "leading explanation identified", "unresolved": "move confirmed, cause not established",
+             "shared_move": "mostly a " + ("market" if (verdict.get("breakdown") or {}).get("scope") == "market_wide" else "sector") + "-wide move",
              "needs_review": "leading explanation withheld for analyst review"}[verdict["status"]]
     return {
         "branches": updates,

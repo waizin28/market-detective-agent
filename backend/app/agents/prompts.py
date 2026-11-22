@@ -105,7 +105,13 @@ Write for an investor or market researcher:
   the evidence best supports. Same-day news coverage published before the close counts as
   evidence of what was public. If the verdict is unresolved, still name the best-supported
   driver but label it "most likely, not confirmed" and say what is missing - never leave the
-  reader with only "unresolved".
+  reader with only "unresolved". The move itself is measured fact; "unresolved" only means
+  no single cause passed every check.
+* If the verdict status is "shared_move", the prices establish that most of the move was
+  sector- or market-wide (see verdict.breakdown: shared_share, specific_ret). State that as
+  an established finding, then give the best-supported reason the sector/market moved and
+  what drove the stock-specific remainder, each labeled "most likely, not confirmed" unless
+  an explanation is leading.
 * `key_events` builds the reader's timeline of what led up to the move: developments in
   the week before the analyzed day through that day (earnings, guidance, leadership,
   regulation, sector news about this company), not only the event day itself. Pick only items
