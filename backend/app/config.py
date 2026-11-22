@@ -35,10 +35,14 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-6.1-sol"
     # Reasoning effort per role: reasoning-heavy roles get more, extraction roles less.
     # Set to "" to omit the parameter for models that don't support it.
-    effort_analyst: str = "high"
-    effort_critic: str = "high"
-    effort_researcher: str = "medium"
-    effort_coordinator: str = "medium"
+    # Speed: "high" effort roughly doubled case time for little rubric change.
+    effort_analyst: str = "medium"
+    effort_critic: str = "medium"
+    effort_researcher: str = "low"
+    effort_coordinator: str = "low"
+    # Optional faster/cheaper model for the researcher and coordinator (tool use,
+    # extraction, writing). Empty = use llm_model for every role.
+    llm_model_fast: str | None = None
 
     # --- Data providers ----------------------------------------------------
     alpha_vantage_api_key: str | None = None
@@ -63,6 +67,9 @@ class Settings(BaseSettings):
     researcher_max_tool_calls: int = 4
     max_api_calls_per_case: int = 120
     case_timeout_seconds: int = 900
+    # Skip the challenge round when no finalist could qualify as leading anyway
+    # (event documented + public before the close are prerequisites a challenge can't add).
+    skip_hopeless_challenges: bool = True
 
     # --- Retrieval ----------------------------------------------------------
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"

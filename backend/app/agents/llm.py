@@ -30,8 +30,9 @@ def chat_model(role: str) -> ChatOpenAI:
     kwargs: dict = {}
     if effort:
         kwargs["reasoning_effort"] = effort
+    model = s.llm_model_fast if (s.llm_model_fast and role in ("researcher", "coordinator")) else s.llm_model
     return ChatOpenAI(
-        model=s.llm_model,
+        model=model,
         api_key=s.openai_api_key,
         max_retries=3,
         request_timeout=300,
