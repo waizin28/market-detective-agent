@@ -450,31 +450,84 @@ export function LeadUpTimeline({ c, onOpen, limit = 7 }: { c: CaseView; onOpen: 
     ? curated
     : c.evidence
         .filter((e) => e.kind === "news" && (e.timing === "before" || e.timing === "during"))
+        .filter((e) => !/stock price, news, quote|quote & history|stock quote/i.test(e.title)) // quote pages aren't events
         .sort((a, b) => ts(a) - ts(b))
         .slice(-limit)
         .map((e) => ({ e, headline: "", brief: e.snippet ? e.snippet.slice(0, 220) + (e.snippet.length > 220 ? "…" : "") : "" }));
   if (rows.length === 0) {
     return <div className="empty">{c.report ? `No ${c.ticker ?? "company"} news was found before the close.` : "Collecting events…"}</div>;
   }
+  // Group by the Eastern-time calendar day, labeled relative to the move day.
+  const eventDay = c.anomaly?.event_date;
+  const groups: { day: string; items: typeof rows }[] = [];
+  for (const r of rows.slice(0, limit)) {
+    const day = etDay(r.e.published_at);
+    const g = groups[groups.length - 1];
+    if (g && g.day === day) g.items.push(r);
+    else groups.push({ day, items: [r] });
+  }
   return (
-    <div className="timeline">
-      {rows.slice(0, limit).map(({ e, headline, brief }) => (
-        <div key={e.id} className="ev">
-          <div className="ev-icon">{KIND_ICON[e.kind] ?? <FileText size={17} />}</div>
-          <div style={{ minWidth: 0 }}>
-            <div className="ev-title" onClick={() => onOpen(e)}>{headline || e.title}</div>
-            {brief && <div className="ev-brief">{brief}</div>}
-            {headline && <div className="ev-orig" onClick={() => onOpen(e)}>“{e.title}”</div>}
-            <div className="ev-meta"><span>{e.source}</span>·<span>{dateTime(e.published_at)}</span></div>
+    <div className="lt">
+      {groups.map((g) => (
+        <div key={g.day} className="lt-group">
+          <div className={`lt-day ${g.day === eventDay ? "event" : ""}`}>
+            <span>{dayLabel(g.day, eventDay)}</span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-            <TimingPill t={e.timing} />
-            <button className="cite" onClick={() => onOpen(e)}>{e.id}</button>
-          </div>
+          {g.items.map(({ e, headline, brief }) => {
+            const site = (e.meta?.publisher_site as string | undefined)?.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "");
+            return (
+              <div key={e.id} className={`lt-item k-${e.kind} ${e.timing === "during" ? "during" : ""}`}>
+                <div className="lt-node">{KIND_ICON[e.kind] ?? <FileText size={16} />}</div>
+                <div className="lt-card">
+                  <div className="lt-when">
+                    <span className="lt-date">{etDate(e.published_at)}</span>
+                    {!e.date_only && <span className="lt-time">{etTime(e.published_at)}</span>}
+                  </div>
+                  <button className="lt-title" onClick={() => onOpen(e)}>{headline || e.title}</button>
+                  {brief && <div className="lt-quote">{brief}</div>}
+                  {headline && <div className="lt-orig">Original headline: “{e.title}”</div>}
+                  <div className="lt-chips">
+                    <span className="lt-kind">{e.kind === "sec_filing" ? "SEC filing" : "News"}</span>
+                    <span className="dot" />
+                    <span className="lt-src">{e.source}{site ? ` · ${site}` : ""}</span>
+                    <span className="dot" />
+                    <TimingPill t={e.timing} />
+                    <span className="spacer" />
+                    <button className="cite" onClick={() => onOpen(e)}>{e.id}</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       ))}
     </div>
   );
+}
+
+const ET = "America/New_York";
+function etDay(iso?: string | null): string {
+  if (!iso) return "unknown";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  return new Intl.DateTimeFormat("en-CA", { timeZone: ET, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+}
+function etDate(iso?: string | null): string {
+  if (!iso) return "Date unknown";
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00Z`) : new Date(iso);
+  return new Intl.DateTimeFormat("en-US", { timeZone: ET, weekday: "short", month: "short", day: "numeric" }).format(d);
+}
+function etTime(iso?: string | null): string {
+  if (!iso || /^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
+  return new Intl.DateTimeFormat("en-US", { timeZone: ET, hour: "numeric", minute: "2-digit" }).format(new Date(iso)) + " ET";
+}
+function dayLabel(day: string, eventDay?: string): string {
+  if (day === "unknown") return "Date unknown";
+  const pretty = etDate(day);
+  if (!eventDay) return pretty;
+  const diff = Math.round((Date.parse(`${eventDay}T12:00:00Z`) - Date.parse(`${day}T12:00:00Z`)) / 86400000);
+  if (diff === 0) return `Move day · ${pretty}`;
+  if (diff > 0) return `${diff} day${diff === 1 ? "" : "s"} before · ${pretty}`;
+  return `${-diff} day${diff === -1 ? "" : "s"} after · ${pretty}`;
 }
 
 // ---------------------------------------------------------------- agent trace
