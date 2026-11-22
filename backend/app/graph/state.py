@@ -38,6 +38,8 @@ class CaseState(TypedDict, total=False):
     anomaly: dict | None
     prices: list[dict]
     benchmark_prices: dict[str, list[dict]]
+    intraday: dict | None  # event-day 5-minute path (stock + sector ETF)
+    upcoming: list[dict]  # scheduled events after today
 
     # --- investigation memory ------------------------------------------------
     evidence: Annotated[dict[str, dict], merge_dicts]

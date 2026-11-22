@@ -72,6 +72,8 @@ class RunManager:
             "anomaly": v.get("anomaly"),
             "prices": v.get("prices", []),
             "benchmark_prices": v.get("benchmark_prices", {}),
+            "intraday": v.get("intraday"),
+            "upcoming": v.get("upcoming", []),
             "evidence": evidence,
             "branches": branches,
             "findings": v.get("findings", []),

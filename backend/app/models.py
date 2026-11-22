@@ -12,7 +12,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 Timing = Literal["before", "during", "after", "unknown"]
-SourceKind = Literal["sec_filing", "news", "market_data", "macro_data", "computed"]
+SourceKind = Literal["sec_filing", "news", "market_data", "macro_data", "computed", "earnings", "analyst"]
 HypothesisCategory = Literal[
     "earnings_guidance",
     "company_specific",

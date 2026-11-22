@@ -82,7 +82,7 @@ class Fred:
         label, unit = SERIES.get(series_id, (series_id, ""))
         return SeriesMove(series_id, label, unit, obs[-1]["date"], cur, prev, cur - prev)
 
-    async def releases_between(self, start: date, end: date) -> list[Release]:
+    async def releases_between(self, start: date, end: date, include_future: bool = False) -> list[Release]:
         if not self._key:
             raise DataUnavailable("FRED_API_KEY not configured")
         data = await self._http.get_json(
@@ -93,7 +93,7 @@ class Fred:
                 "file_type": "json",
                 "realtime_start": start.isoformat(),
                 "realtime_end": end.isoformat(),
-                "include_release_dates_with_no_data": "false",
+                "include_release_dates_with_no_data": "true" if include_future else "false",
                 "limit": 1000,
             },
             ttl=12 * 3600,
