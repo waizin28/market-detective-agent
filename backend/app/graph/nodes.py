@@ -450,7 +450,18 @@ def route_after_controller(state: CaseState) -> str:
     used = state.get("checks_used") or 0
     if not active or used >= s.max_evidence_checks or state["round"] >= s.max_rounds:
         return "write_report"
-    return "refine_branches" if state["round"] == 1 else "plan_challenges"
+    if state["round"] == 1:
+        return "refine_branches"
+    if s.skip_hopeless_challenges and not any(_could_lead(b) for b in active):
+        return "write_report"
+    return "plan_challenges"
+
+
+def _could_lead(b: dict) -> bool:
+    """A challenge can only confirm or knock down a branch; it can't supply the
+    documented event or pre-close timing that a leading explanation needs."""
+    sc = b.get("score") or {}
+    return bool(sc.get("event") and sc.get("timing"))
 
 
 async def refine_branches(state: CaseState, runtime: Runtime[Deps]) -> dict:
@@ -518,6 +529,11 @@ def _published_ts(e: dict) -> float:
 async def write_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
     deps, s = runtime.context, runtime.context.settings
     verdict = decide_verdict(state["branches"], s.leading_min_score)
+    skipped_challenge = (
+        (state.get("round") or 0) == 2
+        and (state.get("checks_used") or 0) < s.max_evidence_checks
+        and any(b["status"] == "active" for b in state["branches"].values())
+    )
 
     # Final statuses for display.
     updates = {}
@@ -527,6 +543,11 @@ async def write_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
             nb["status"] = "leading"
         elif b["status"] == "active":
             nb["status"] = "finalist" if b.get("challenge_completed") else "not_established"
+            if skipped_challenge:
+                nb["notes"] = b["notes"] + [
+                    "Challenge round skipped: no explanation had both a documented event and "
+                    "pre-close timing, so none could qualify as leading."
+                ]
         nb["rank"] = verdict["ranks"].get(bid)
         nb["blockers"] = verdict["blockers"].get(bid, [])
         updates[bid] = nb
@@ -599,5 +620,8 @@ async def write_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
         "branches": updates,
         "report": report,
         "status": "complete",
-        "events": [_emit("coordinator", f"Case file written - {label}")],
+        "events": (
+            [_emit("controller", "Skipping challenge round - no finalist could qualify as leading")]
+            if skipped_challenge else []
+        ) + [_emit("coordinator", f"Case file written - {label}")],
     }

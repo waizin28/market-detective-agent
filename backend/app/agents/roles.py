@@ -5,6 +5,7 @@ structured output; the graph controller decides what runs when.
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 from langchain.agents import create_agent
@@ -20,6 +21,7 @@ from app.agents.llm import chat_model, structured
 from app.agents.tools import build_research_tools
 from app.models import (
     ChallengePlans,
+    CriticAssessment,
     CriticBatch,
     Finding,
     FollowUpAnswer,
@@ -88,6 +90,24 @@ def trend_brief(state: dict) -> str:
         if w:
             lines.append(f"{t}: {w}")
     return "\n".join(lines) or "(not available)"
+
+
+def focused_evidence(state: dict, branch_id: str) -> dict[str, dict]:
+    """Evidence a critic needs for one branch: market/computed/macro data, company news and
+    filings public by the close, and anything this branch's checks found or cited."""
+    own: set[str] = set()
+    for f in state.get("findings") or []:
+        if f["branch_id"] == branch_id:
+            own.update(f.get("new_evidence_ids") or [])
+            own.update(f.get("supporting_evidence_ids") or [])
+            own.update(f.get("contradicting_evidence_ids") or [])
+    return {
+        k: v
+        for k, v in state["evidence"].items()
+        if k in own
+        or v["kind"] in ("computed", "market_data", "macro_data")
+        or (v["kind"] in ("news", "sec_filing") and v["timing"] in ("before", "during"))
+    }
 
 
 def branches_brief(branches: list[dict], findings: list[dict] | None = None) -> str:
@@ -191,15 +211,29 @@ class LLMRoles:
         )
 
     async def critique(self, state: dict, branches: list[dict]) -> CriticBatch:
-        msg = (
-            f"## Anomaly\n{anomaly_brief(state)}\n"
-            f"## Explanations and checks so far\n{branches_brief(branches, state.get('findings'))}\n"
-            f"## Evidence\n{render_evidence(state['evidence'], 600)}\n\n"
-            "Assess every explanation listed above (one assessment per branch id)."
-        )
-        return await structured("critic", CriticBatch).ainvoke(
-            [SystemMessage(prompts.CRITIC), HumanMessage(msg)]
-        )
+        """One critic call per branch, run in parallel, each seeing only the evidence
+        relevant to that branch. Faster (wall time = slowest single call) and fewer
+        input tokens than one big call over the whole ledger."""
+
+        async def one(b: dict) -> CriticAssessment | None:
+            evidence = focused_evidence(state, b["id"])
+            msg = (
+                f"## Anomaly\n{anomaly_brief(state)}\n"
+                f"## Explanation and its checks so far\n{branches_brief([b], state.get('findings'))}\n"
+                f"## Evidence\n{render_evidence(evidence, 400)}\n\n"
+                f"Assess explanation [{b['id']}] (use branch_id \"{b['id']}\")."
+            )
+            try:
+                a = await structured("critic", CriticAssessment).ainvoke(
+                    [SystemMessage(prompts.CRITIC), HumanMessage(msg)]
+                )
+            except Exception:  # the node records a missing assessment for this branch
+                return None
+            a.branch_id = b["id"]
+            return a
+
+        results = await asyncio.gather(*(one(b) for b in branches))
+        return CriticBatch(assessments=[a for a in results if a is not None])
 
     # ---------------------------------------------------------------- researcher
     async def research(self, state: dict, branch: dict, check: dict, ledger: Ledger) -> Finding:

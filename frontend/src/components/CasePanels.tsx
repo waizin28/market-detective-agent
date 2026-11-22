@@ -88,7 +88,19 @@ export function VerdictCard({ c, onCite }: { c: CaseView; onCite: OnCite }) {
     <div className="card">
       <div className="card-h"><h3>Case verdict</h3></div>
       <VerdictBadge c={c} />
-      {!r && <p className="verdict-text sub">The verdict appears after the final challenge round.</p>}
+      {!r && (() => {
+        // Provisional read while the investigation runs: the current best-scored branch.
+        const scored = c.branches.filter((b) => b.score && b.status !== "ruled_out");
+        const lead = scored.sort((a, b) => (b.score!.total - a.score!.total))[0];
+        if (!lead) return <p className="verdict-text sub">A provisional front-runner appears after the first scoring round.</p>;
+        return (
+          <>
+            <div className="section-label"><CircleDashed size={13} className="spin" /> Current front-runner · round {Math.max(c.round, 1)} · {lead.score!.total}/4</div>
+            <p className="verdict-text"><strong>{lead.title}.</strong> <span className="sub">{lead.statement}</span></p>
+            <p className="sub">Provisional - the final verdict follows the remaining checks.</p>
+          </>
+        );
+      })()}
       {r && r.verdict.status !== "no_anomaly" && (
         <>
           <div className="section-label"><Sparkles size={13} /> Why it {c.anomaly && c.anomaly.ret < 0 ? "went down" : "went up"}</div>

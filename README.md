@@ -249,7 +249,9 @@ and blank entries are ignored.
 | `OPENAI_API_KEY` | **yes** | Powers the four agents. Without it, investigations can't start, though the watchlist scan still works. |
 | `SEC_USER_AGENT` | **yes** | SEC EDGAR requires an app name plus a real contact email. |
 | `LLM_MODEL` | no | OpenAI model ID (default `gpt-6.1-sol`; e.g. `gpt-6-astra` for the flagship). See [OpenAI models](https://developers.openai.com/docs/models). |
-| `EFFORT_ANALYST`, `EFFORT_CRITIC`, `EFFORT_RESEARCHER`, `EFFORT_COORDINATOR` | no | Reasoning effort per role (`low`/`medium`/`high`). Set to empty for models without reasoning effort. |
+| `EFFORT_ANALYST`, `EFFORT_CRITIC`, `EFFORT_RESEARCHER`, `EFFORT_COORDINATOR` | no | Reasoning effort per role (`low`/`medium`/`high`; defaults medium, medium, low, low for speed). Set to empty for models without reasoning effort. |
+| `LLM_MODEL_FAST` | no | Optional faster model for the researcher and coordinator (e.g. a "mini" model); the analyst and critic keep `LLM_MODEL`. |
+| `SKIP_HOPELESS_CHALLENGES` | no | Default `true`: skip round 3 when no finalist has both a documented event and pre-close timing (none could become leading). |
 | `ALPHA_VANTAGE_API_KEY` | no | Primary price source ([free key](https://www.alphavantage.co/support/#api-key)). Falls back to Yahoo Finance. |
 | `NEWSAPI_KEY` | no | News search ([free key](https://newsapi.org/register)). Without it, only recent Yahoo headlines are used, so older events get little news. |
 | `FRED_API_KEY` | no | Treasury yields, VIX and macro release dates ([free key](https://fred.stlouisfed.org/docs/api/api_key.html)). Without it, macro explanations can't be checked. |
