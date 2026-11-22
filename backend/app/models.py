@@ -184,18 +184,46 @@ class ExplanationNarrative(BaseModel):
     narrative: str = Field(description="2-4 sentences, citing evidence ids like [E3].")
 
 
+class KeyEvent(BaseModel):
+    evidence_id: str = Field(description="Id of a news (preferred) or SEC-filing evidence item about this company.")
+    headline: str = Field(
+        description=(
+            "Crisp headline, max ~12 words: WHO did WHAT, in plain English, with the key "
+            "number if any. E.g. 'Reuters: SEC probing Nvidia's accounting' or 'CEO Jane "
+            "Doe resigns after board review'. Never a form name like '8-K Item 5.02'."
+        )
+    )
+    brief: str = Field(
+        description=(
+            "1-2 plain sentences: what happened, and how it relates to the stock's move "
+            "(e.g. 'raised concerns about X, which the sell-off followed'). No citations needed."
+        )
+    )
+
+
 class ReportNarrative(BaseModel):
     headline: str = Field(description="One line, neutral, no investment advice.")
     why_it_moved: str = Field(
         description=(
-            "2-4 sentences answering 'why did the stock go up/down?' for the reader. State the "
-            "direction and size, how much of the move was shared with the sector/market vs. "
+            "3-5 sentences answering 'why did the stock go up/down?' for the reader. State the "
+            "direction and size, put it in the context of the preceding weeks (trend and the "
+            "developments that built up to it), how much of the move was shared with the sector/market vs. "
             "company-specific, and the most likely driver(s) the evidence points to - clearly "
             "labeled as 'established' (leading explanation) or 'most likely but not confirmed' "
             "(unresolved). Cite evidence ids."
         )
     )
-    summary: str = Field(description="One paragraph summary that cites evidence ids.")
+    summary: str = Field(
+        description="One paragraph summary over the wide timeline (the weeks leading up, then the event day) that cites evidence ids."
+    )
+    key_events: list[KeyEvent] = Field(
+        description=(
+            "4-10 events, mostly news articles, about THIS company across the whole lead-up (the weeks before, not "
+            "just the event day), public before the event-day close, that together tell the "
+            "story of how the move built up. Skip generic market stories, price-quote pages, "
+            "duplicates and anything published after the close."
+        )
+    )
     explanations: list[ExplanationNarrative]
     uncertainties: list[str]
     next_steps: list[str] = Field(description="Things a researcher could monitor or check next.")

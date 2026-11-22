@@ -61,6 +61,33 @@ def anomaly_brief(state: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def trend_brief(state: dict) -> str:
+    """Wide-timeline price context: how the stock and benchmarks moved over the weeks
+    before the event, so the narrative can describe the build-up, not just one day."""
+    a = state.get("anomaly") or {}
+    ev_date = a.get("event_date")
+
+    def window(points: list[dict]) -> str | None:
+        pts = [p for p in points or [] if p["date"] <= ev_date]
+        if len(pts) < 22:
+            return None
+        last = pts[-1]["close"]
+        r5 = last / pts[-6]["close"] - 1
+        r21 = last / pts[-22]["close"] - 1
+        peak = max(p["close"] for p in pts[-63:])
+        return f"5-day {r5:+.1%}, ~1-month {r21:+.1%}, {last / peak - 1:+.1%} from its 3-month high"
+
+    lines = []
+    own = window(state.get("prices") or [])
+    if own:
+        lines.append(f"{state.get('ticker')} through {ev_date}: {own}")
+    for t, pts in (state.get("benchmark_prices") or {}).items():
+        w = window(pts)
+        if w:
+            lines.append(f"{t}: {w}")
+    return "\n".join(lines) or "(not available)"
+
+
 def branches_brief(branches: list[dict], findings: list[dict] | None = None) -> str:
     out = []
     for b in branches:
@@ -97,6 +124,7 @@ class LLMRoles:
         branches = sorted(state["branches"].values(), key=lambda b: verdict["ranks"].get(b["id"], 99))
         msg = (
             f"## Anomaly\n{anomaly_brief(state)}\n"
+            f"## Wide timeline: price trend into the event (computed)\n{trend_brief(state)}\n"
             f"## Verdict (fixed by the rules)\n{json.dumps(verdict, indent=1)}\n"
             f"## Explanations and checks\n{branches_brief(branches, state.get('findings'))}\n"
             f"## Evidence gaps\n" + ("\n".join(state.get("gaps", [])[-20:]) or "none") + "\n"

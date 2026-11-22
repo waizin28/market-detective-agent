@@ -48,6 +48,14 @@ function moveBreakdown(c: CaseView): string | null {
   } else if (sector) {
     parts.push(`Its sector moved the other way, so the move was specific to ${a.ticker}.`);
   }
+  // Wide timeline: where the day sits in the preceding month.
+  const pts = (c.prices ?? []).filter((p) => p.date <= a.event_date);
+  if (pts.length >= 22) {
+    const last = pts[pts.length - 1].close;
+    const m = last / pts[pts.length - 22].close - 1;
+    const peak = Math.max(...pts.slice(-63).map((p) => p.close));
+    parts.push(`Over the prior month ${a.ticker} moved ${pct(m)} and closed ${pct(last / peak - 1)} from its 3-month high.`);
+  }
   return parts.join(" ");
 }
 
@@ -398,6 +406,50 @@ export function Timeline({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- lead-up timeline (overview)
+/**
+ * Only events about the searched company that were public by the close, oldest first,
+ * each with a short brief. Uses the coordinator's key_events when the case file is ready;
+ * while the investigation runs, falls back to company news/filings before the close.
+ */
+export function LeadUpTimeline({ c, onOpen, limit = 7 }: { c: CaseView; onOpen: (e: Evidence) => void; limit?: number }) {
+  const byId = useMemo(() => new Map(c.evidence.map((e) => [e.id, e])), [c.evidence]);
+  const curated = (c.report?.key_events ?? [])
+    .map((k) => ({ e: byId.get(k.evidence_id), headline: k.headline || "", brief: k.brief }))
+    .filter((x): x is { e: Evidence; headline: string; brief: string } => !!x.e);
+  const ts = (e: Evidence) => (e.published_at ? Date.parse(e.published_at) : Infinity);
+  // While the case runs (or for older cases): news articles about the company only.
+  const rows = curated.length
+    ? curated
+    : c.evidence
+        .filter((e) => e.kind === "news" && (e.timing === "before" || e.timing === "during"))
+        .sort((a, b) => ts(a) - ts(b))
+        .slice(-limit)
+        .map((e) => ({ e, headline: "", brief: e.snippet ? e.snippet.slice(0, 220) + (e.snippet.length > 220 ? "…" : "") : "" }));
+  if (rows.length === 0) {
+    return <div className="empty">{c.report ? `No ${c.ticker ?? "company"} news was found before the close.` : "Collecting events…"}</div>;
+  }
+  return (
+    <div className="timeline">
+      {rows.slice(0, limit).map(({ e, headline, brief }) => (
+        <div key={e.id} className="ev">
+          <div className="ev-icon">{KIND_ICON[e.kind] ?? <FileText size={17} />}</div>
+          <div style={{ minWidth: 0 }}>
+            <div className="ev-title" onClick={() => onOpen(e)}>{headline || e.title}</div>
+            {brief && <div className="ev-brief">{brief}</div>}
+            {headline && <div className="ev-orig" onClick={() => onOpen(e)}>“{e.title}”</div>}
+            <div className="ev-meta"><span>{e.source}</span>·<span>{dateTime(e.published_at)}</span></div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+            <TimingPill t={e.timing} />
+            <button className="cite" onClick={() => onOpen(e)}>{e.id}</button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -69,7 +69,8 @@ class Settings(BaseSettings):
     chunk_tokens: int = 400
     chunk_overlap_tokens: int = 50
     retrieval_top_k: int = 5
-    news_lookback_days: int = 7
+    # Wide timeline: the lead-up story is searched week by week over this window.
+    news_lookback_days: int = 30
     filings_lookback_days: int = 30
 
     # --- Storage / server ---------------------------------------------------

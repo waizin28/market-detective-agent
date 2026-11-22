@@ -36,6 +36,11 @@ def scan_injection(text: str) -> list[str]:
     return ["possible_injection"] if INJECTION_PATTERNS.search(text or "") else []
 
 
+def price_history_url(ticker: str) -> str:
+    """Public page where daily closes can be checked by hand."""
+    return f"https://finance.yahoo.com/quote/{ticker}/history/"
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -114,7 +119,7 @@ class Ledger:
                         timing=self.timing(a.published_at),
                         snippet=snippet,
                         flags=scan_injection(a.title + " " + snippet),
-                        meta={"provider": news.provider},
+                        meta={"provider": news.provider, **({"publisher_site": a.site} if a.site else {})},
                     )
                 )
             )
@@ -217,6 +222,7 @@ class Ledger:
                         kind="market_data",
                         title=f"{t} daily return on {on}: {ret:+.2%}",
                         source=df.attrs.get("source", "market data"),
+                        url=price_history_url(t),
                         published_at=close_dt.isoformat(),
                         retrieved_at=now_iso(),
                         timing=self.timing(close_dt),
