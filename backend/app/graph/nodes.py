@@ -16,7 +16,7 @@ from langgraph.config import get_stream_writer
 from langgraph.runtime import Runtime
 from langgraph.types import Send, interrupt
 
-from app.agents.evidence import CaseContext, Ledger, evidence_id, now_iso, price_history_url
+from app.agents.evidence import CaseContext, Ledger, evidence_id, in_news_window, now_iso, price_history_url
 from app.analysis.anomaly import compute_anomaly, price_points
 from app.analysis.scoring import decide_verdict, rank_key, score_branch, select_beam
 from app.analysis.timing import market_close
@@ -555,6 +555,7 @@ async def write_report(state: CaseState, runtime: Runtime[Deps]) -> dict:
             if k.evidence_id in ev
             and ev[k.evidence_id]["kind"] in ("news", "sec_filing")
             and ev[k.evidence_id]["timing"] in ("before", "during")
+            and in_news_window(ev[k.evidence_id], date.fromisoformat(state["anomaly"]["event_date"]), 7)
         ),
         # Parse: published_at strings mix UTC (news) and ET (filings) offsets.
         key=lambda k: _published_ts(ev[k["evidence_id"]]),

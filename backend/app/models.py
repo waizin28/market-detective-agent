@@ -206,20 +206,20 @@ class ReportNarrative(BaseModel):
     why_it_moved: str = Field(
         description=(
             "3-5 sentences answering 'why did the stock go up/down?' for the reader. State the "
-            "direction and size, put it in the context of the preceding weeks (trend and the "
-            "developments that built up to it), how much of the move was shared with the sector/market vs. "
+            "direction and size, put it in the context of the preceding week (price trend and the "
+            "news that built up to it), how much of the move was shared with the sector/market vs. "
             "company-specific, and the most likely driver(s) the evidence points to - clearly "
             "labeled as 'established' (leading explanation) or 'most likely but not confirmed' "
             "(unresolved). Cite evidence ids."
         )
     )
     summary: str = Field(
-        description="One paragraph summary over the wide timeline (the weeks leading up, then the event day) that cites evidence ids."
+        description="One paragraph summary covering the week of news leading up to the analyzed day, then the day itself; cites evidence ids."
     )
     key_events: list[KeyEvent] = Field(
         description=(
-            "4-10 events, mostly news articles, about THIS company across the whole lead-up (the weeks before, not "
-            "just the event day), public before the event-day close, that together tell the "
+            "4-10 events, mostly news articles, about THIS company from the week before the "
+            "analyzed day through that day, public before the event-day close, that together tell the "
             "story of how the move built up. Skip generic market stories, price-quote pages, "
             "duplicates and anything published after the close."
         )

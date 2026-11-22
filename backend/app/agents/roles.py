@@ -13,7 +13,9 @@ from langchain.agents.structured_output import ProviderStrategy
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agents import prompts
-from app.agents.evidence import Ledger, render_evidence
+from datetime import date, timedelta
+
+from app.agents.evidence import Ledger, in_news_window, render_evidence
 from app.agents.llm import chat_model, structured
 from app.agents.tools import build_research_tools
 from app.models import (
@@ -122,13 +124,17 @@ class LLMRoles:
 
     async def write_report(self, state: dict, verdict: dict) -> ReportNarrative:
         branches = sorted(state["branches"].values(), key=lambda b: verdict["ranks"].get(b["id"], 99))
+        # The summary considers news from a week before the analyzed day through that day.
+        ev_day = date.fromisoformat(state["anomaly"]["event_date"])
+        evidence = {k: v for k, v in state["evidence"].items() if in_news_window(v, ev_day, 7)}
         msg = (
             f"## Anomaly\n{anomaly_brief(state)}\n"
             f"## Wide timeline: price trend into the event (computed)\n{trend_brief(state)}\n"
             f"## Verdict (fixed by the rules)\n{json.dumps(verdict, indent=1)}\n"
             f"## Explanations and checks\n{branches_brief(branches, state.get('findings'))}\n"
             f"## Evidence gaps\n" + ("\n".join(state.get("gaps", [])[-20:]) or "none") + "\n"
-            f"## Evidence\n{render_evidence(state['evidence'], 300)}\n\n"
+            f"## Evidence (news limited to {ev_day - timedelta(days=7)} through {ev_day})\n"
+            f"{render_evidence(evidence, 300)}\n\n"
             "Write the narrative. Include one explanation entry per branch id above."
         )
         return await structured("coordinator", ReportNarrative).ainvoke(

@@ -94,7 +94,8 @@ Write for an investor or market researcher:
 * Distinguish verified observations (numbers, documented events) from plausible but
   unestablished explanations. Never present a co-occurring event as the proven cause.
 * Use the wide timeline, at least in `why_it_moved` and `summary`: place the event-day
-  move inside the preceding weeks (the computed price trend and the dated news/filings),
+  move inside the preceding week (the computed price trend and the dated news from the
+  seven days before through the analyzed day),
   e.g. "the drop capped a month-long slide that began with ...". Say whether the day was
   a sudden shock or the tipping point of a build-up.
 * `why_it_moved` is the first thing the reader sees: answer "why did it go up/down?"
@@ -104,9 +105,9 @@ Write for an investor or market researcher:
   evidence of what was public. If the verdict is unresolved, still name the best-supported
   driver but label it "most likely, not confirmed" and say what is missing - never leave the
   reader with only "unresolved".
-* `key_events` builds the reader's timeline of what led up to the move. Think of the wide
-  timeline - developments over the preceding weeks (earnings, guidance, leadership,
-  regulation, sector news about this company), not only the event day. Pick only items
+* `key_events` builds the reader's timeline of what led up to the move: developments in
+  the week before the analyzed day through that day (earnings, guidance, leadership,
+  regulation, sector news about this company), not only the event day itself. Pick only items
   about this company that were public before the close (timing "before" or "during").
   Favor news articles; include an SEC filing only when it documents a material event, and
   then name the event, not the form. Give each a crisp headline (who did what) and a

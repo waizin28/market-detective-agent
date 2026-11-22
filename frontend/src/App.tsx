@@ -17,9 +17,18 @@ function parseHash(): Route {
 
 const TRY = ["NVDA", "AAPL", "TSLA", "AMD", "META", "MSFT"];
 
+/** Most recent weekday whose 4:00 PM ET close has passed (holidays resolve server-side). */
+function latestTradingDay(): string {
+  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  if (et.getHours() < 16) et.setDate(et.getDate() - 1);
+  while (et.getDay() === 0 || et.getDay() === 6) et.setDate(et.getDate() - 1);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${et.getFullYear()}-${p(et.getMonth() + 1)}-${p(et.getDate())}`;
+}
+
 function SearchBar({ onSubmit, disabled }: { onSubmit: (q: string, date: string | null, force: boolean) => Promise<void>; disabled: boolean }) {
   const [q, setQ] = useState("");
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(latestTradingDay());
   const [force, setForce] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -38,9 +47,9 @@ function SearchBar({ onSubmit, disabled }: { onSubmit: (q: string, date: string 
           <Search size={17} color="#7184a3" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Investigate a stock: ticker or company name…" maxLength={80} />
         </div>
-        <label className="date-box" title="Leave empty to investigate the largest move in the last 20 trading days">
+        <label className="date-box" title="The trading day to analyze (defaults to the latest close). Weekends and holidays use the prior trading day.">
           Event date
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} max={new Date().toISOString().slice(0, 10)} />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} max={latestTradingDay()} required />
         </label>
         <button className="btn primary" disabled={busy || disabled || !q.trim()}>
           <Sparkles size={15} /> {busy ? "Starting…" : "Investigate"}

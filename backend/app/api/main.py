@@ -58,7 +58,7 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 class InvestigateRequest(BaseModel):
     query: str = Field(min_length=1, max_length=80, description="Ticker or company name")
-    event_date: date | None = Field(None, description="Trading day to investigate; default = largest recent move")
+    event_date: date | None = Field(None, description="Trading day to investigate; default = latest completed trading day")
     peers: list[str] | None = Field(None, max_length=3)
     force: bool = Field(False, description="Investigate even if the move is within the normal range")
 
@@ -222,6 +222,7 @@ async def scan(tickers: str | None = None):
                 a = compute_anomaly(
                     t, df, bench, lookback=s.anomaly_lookback_days, z_threshold=s.anomaly_z_threshold,
                     scan_days=s.anomaly_scan_days,
+                    default="largest",
                 )
                 last = df["close"].iloc[-1]
                 last_ret = float(df["close"].pct_change().iloc[-1])
