@@ -163,20 +163,20 @@ case survives a server restart and can pause for human input.
 
 ```mermaid
 flowchart TD
-    A[resolve_case<br/>coordinator] -->|ambiguous name| H{{interrupt: ask the user}}
+    A["resolve_case<br/>coordinator"] -->|"ambiguous or unknown name"| H{{"interrupt: ask the user"}}
     H --> A
-    A --> B[detect_anomaly<br/>picked day (default: latest close) vs prior 60 days, peers, sector ETF, SPY]
-    B --> C[build_timeline<br/>SEC filings, week of news, macro]
-    C -->|move within ±2σ| N[normal-day brief<br/>one coordinator call over the week's news]
-    C --> D[propose_hypotheses<br/>analyst: up to 4 branches]
-    D -->|Send, in parallel| R[research_check<br/>researcher ReAct agent + read-only tools]
-    R --> E[critique<br/>critic scores; Python re-verifies]
-    E --> F[controller<br/>prune below 2/4, keep top 2]
-    F -->|after round 1| G[refine_branches<br/>analyst]
-    F -->|after round 2| I[plan_challenges<br/>critic: try to disprove]
+    A --> B["detect_anomaly<br/>picked day (default: latest close) vs prior 60 days, peers, sector ETF, SPY"]
+    B --> C["build_timeline<br/>SEC filings, news, earnings, analyst actions, intraday path, macro"]
+    C -->|"move within ±2σ"| N["normal-day brief<br/>one coordinator call over the week's news"]
+    C -->|"unusual move"| D["propose_hypotheses<br/>analyst: up to 4 branches"]
+    D -->|"Send, in parallel"| R["research_check<br/>researcher ReAct agent + read-only tools"]
+    R --> E["critique<br/>critic scores; Python re-verifies"]
+    E --> F["controller<br/>prune below 2/4, keep top 2"]
+    F -->|"after round 1"| G["refine_branches<br/>analyst"]
+    F -->|"after round 2"| I["plan_challenges<br/>critic: try to disprove"]
     G --> R
     I --> R
-    F -->|round 3 done / budget spent / nothing left| W[write_report<br/>coordinator]
+    F -->|"round 3 done / budget spent / nothing left"| W["write_report<br/>verdict by rules, narrative by coordinator"]
 ```
 
 ### Four agent roles
