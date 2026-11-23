@@ -32,16 +32,16 @@ what is plausible and what is still unknown.
 
 ## What it does
 
-| | |
-|---|---|
-| **Detects unusual moves** | Scores each daily return against the previous 60 trading days (a z-score) and flags moves beyond ±2σ. It also measures how much of the move the S&P 500, the sector ETF and peer stocks shared. |
-| **Builds an event timeline** | Pulls SEC filings (with EDGAR acceptance timestamps), news articles and macro data around the event, and labels each item as published *before*, *during* or *after* the move. |
-| **Proposes competing explanations** | An analyst agent proposes up to four hypotheses (e.g. guidance cut, sector sell-off, rate move, regulatory news), each stating what evidence it predicts. |
-| **Tests them in parallel** | A researcher agent investigates each hypothesis with read-only tools, including semantic search inside filings. |
-| **Challenges the finalists** | A critic agent scores every explanation on a 4-point evidence rubric and designs a check meant to *disprove* each finalist. |
-| **Writes a case file** | A ranked list of explanations with citations, supporting and contradicting evidence, remaining uncertainty and next steps. It says **"unresolved"** when the evidence isn't there. |
-| **Scans a watchlist** | Flags which stocks on your list are acting unusually right now, with one click to investigate. |
-| **Answers follow-ups** | Answers questions about a finished case, grounded only in that case's evidence. |
+|                                     |                                                                                                                                                                                                 |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Detects unusual moves**           | Scores each daily return against the previous 60 trading days (a z-score) and flags moves beyond ±2σ. It also measures how much of the move the S&P 500, the sector ETF and peer stocks shared. |
+| **Builds an event timeline**        | Pulls SEC filings (with EDGAR acceptance timestamps), news articles and macro data around the event, and labels each item as published _before_, _during_ or _after_ the move.                  |
+| **Proposes competing explanations** | An analyst agent proposes up to four hypotheses (e.g. guidance cut, sector sell-off, rate move, regulatory news), each stating what evidence it predicts.                                       |
+| **Tests them in parallel**          | A researcher agent investigates each hypothesis with read-only tools, including semantic search inside filings.                                                                                 |
+| **Challenges the finalists**        | A critic agent scores every explanation on a 4-point evidence rubric and designs a check meant to _disprove_ each finalist.                                                                     |
+| **Writes a case file**              | A ranked list of explanations with citations, supporting and contradicting evidence, remaining uncertainty and next steps. It says **"unresolved"** when the evidence isn't there.              |
+| **Scans a watchlist**               | Flags which stocks on your list are acting unusually right now, with one click to investigate.                                                                                                  |
+| **Answers follow-ups**              | Answers questions about a finished case, grounded only in that case's evidence.                                                                                                                 |
 
 ![Watchlist scanner](docs/screenshots/watchlist.png)
 
@@ -139,10 +139,10 @@ The first investigation that searches a filing downloads the `all-MiniLM-L6-v2` 
    - **What to watch next** lists the next earnings date, dividend dates, Fed (FOMC) decisions
      and, with a FRED key, scheduled macro releases.
 5. **Export a PDF.** **Export PDF** opens a printable case file (verdict, context, timeline,
-   explanations tested, sources with URLs); choose *Save as PDF* in the print dialog.
+   explanations tested, sources with URLs); choose _Save as PDF_ in the print dialog.
 6. **Answer clarifications.** If a name is ambiguous (e.g. "apple"), the investigation pauses and
    asks which company you mean.
-7. **Ask follow-ups** once the case file is ready, e.g. *"What would change this conclusion?"*
+7. **Ask follow-ups** once the case file is ready, e.g. _"What would change this conclusion?"_
 8. **Use the Watchlist** to see which stocks are moving unusually, and **Research history** to
    reopen past cases.
 
@@ -181,20 +181,20 @@ flowchart TD
 
 ### Four agent roles
 
-| Role | Job |
-|---|---|
-| **Coordinator** | Confirms the security, picks peer stocks, and writes the final case file. |
-| **Hypothesis analyst** | Proposes distinct explanations and what each predicts, then sharpens the survivors. |
+| Role                    | Job                                                                                                                                                   |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Coordinator**         | Confirms the security, picks peer stocks, and writes the final case file.                                                                             |
+| **Hypothesis analyst**  | Proposes distinct explanations and what each predicts, then sharpens the survivors.                                                                   |
 | **Evidence researcher** | A ReAct agent (LangChain `create_agent`) with read-only tools: news search, SEC filing list, semantic filing search, peer/ETF returns and macro data. |
-| **Critic** | Scores each explanation on the rubric and designs a final check meant to disprove each finalist. |
+| **Critic**              | Scores each explanation on the rubric and designs a final check meant to disprove each finalist.                                                      |
 
 ### Tree-of-Thought search with a beam of two
 
-| Round | What happens | Evidence checks |
-|---|---|---|
-| 1. Propose | Up to 4 hypotheses, one check each | ≤ 4 |
-| 2. Refine | The 2 strongest survivors are sharpened, up to 2 checks each | ≤ 4 |
-| 3. Challenge | One check per finalist designed to disprove it | ≤ 2 |
+| Round        | What happens                                                 | Evidence checks |
+| ------------ | ------------------------------------------------------------ | --------------- |
+| 1. Propose   | Up to 4 hypotheses, one check each                           | ≤ 4             |
+| 2. Refine    | The 2 strongest survivors are sharpened, up to 2 checks each | ≤ 4             |
+| 3. Challenge | One check per finalist designed to disprove it               | ≤ 2             |
 
 A case is capped at **10 evidence checks**. Branches scoring below 2/4, or decisively contradicted,
 are pruned.
@@ -204,12 +204,12 @@ are pruned.
 Each explanation earns one point per "yes":
 
 1. **Event documented**: does a source directly document the event?
-2. **Timing**: was it public *before* the 4:00 PM ET close of the move?
+2. **Timing**: was it public _before_ the 4:00 PM ET close of the move?
 3. **Price fit**: do the stock, peer, sector and market returns fit the explanation?
-4. **Independent support**: is there support from a different *type* of source?
+4. **Independent support**: is there support from a different _type_ of source?
 
 A **leading explanation** needs ≥ 3/4, must pass both the event and timing checks, and must
-survive its final challenge. Otherwise the verdict is **unresolved**. A score of 3/4 is *not*
+survive its final challenge. Otherwise the verdict is **unresolved**. A score of 3/4 is _not_
 a 75% probability.
 
 ### What the LLM decides vs. what code enforces
@@ -217,14 +217,14 @@ a 75% probability.
 The model handles judgement. Plain Python handles everything that can be checked mechanically,
 so a persuasive model can't override it.
 
-| The LLM (OpenAI) | Python (`backend/app/analysis/`) |
-|---|---|
-| Proposes and refines hypotheses; plans challenges | Returns, z-scores, beta, abnormal return, move scope |
-| Chooses research tools and summarizes findings | Evidence IDs, timestamps and before/during/after labels |
-| Judges whether an event is documented and prices fit | **Timing rule**: anything public after the close can't be the trigger |
-| Writes the narrative | **Independence rule**: ten articles about one filing count once |
-| | **Price-fit guards**: a company-only cause can't explain a move the whole sector shared |
-| | Pruning, beam width, budgets and the final verdict |
+| The LLM (OpenAI)                                     | Python (`backend/app/analysis/`)                                                        |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Proposes and refines hypotheses; plans challenges    | Returns, z-scores, beta, abnormal return, move scope                                    |
+| Chooses research tools and summarizes findings       | Evidence IDs, timestamps and before/during/after labels                                 |
+| Judges whether an event is documented and prices fit | **Timing rule**: anything public after the close can't be the trigger                   |
+| Writes the narrative                                 | **Independence rule**: ten articles about one filing count once                         |
+|                                                      | **Price-fit guards**: a company-only cause can't explain a move the whole sector shared |
+|                                                      | Pruning, beam width, budgets and the final verdict                                      |
 
 ### Retrieval
 
@@ -241,7 +241,7 @@ permanent vector database; indexes are cached in memory per filing.
 - **Untrusted content.** Retrieved text is fenced off as data. Instruction-like text (prompt
   injection) is flagged and shown with a warning badge. Citations to evidence IDs that don't
   exist are dropped and noted.
-- **Time-aware evidence.** Anything published after the move is labeled *after close* and can
+- **Time-aware evidence.** Anything published after the move is labeled _after close_ and can
   appear only as commentary, never as the cause.
 - **Budgets.** Each case is capped at 10 evidence checks, per-researcher tool and model-call
   limits, an external API-call budget, bounded retries and a timeout. Missing data is recorded as
@@ -251,7 +251,7 @@ permanent vector database; indexes are cached in memory per filing.
 - **Human in the loop.** Ambiguous companies pause the graph until you choose. A leading
   explanation built on conflicting credible sources is withheld for analyst review.
 
-*Research output, not investment advice.*
+_Research output, not investment advice._
 
 ---
 
@@ -261,18 +261,18 @@ Settings are read from `backend/.env` and a `.env` at the project root (`backend
 both set a value). Values in these files take precedence over variables exported in your shell,
 and blank entries are ignored.
 
-| Variable | Required | Purpose / what happens without it |
-|---|---|---|
-| `OPENAI_API_KEY` | **yes** | Powers the four agents. Without it, investigations can't start, though the watchlist scan still works. |
-| `SEC_USER_AGENT` | **yes** | SEC EDGAR requires an app name plus a real contact email. |
-| `LLM_MODEL` | no | OpenAI model ID (default `gpt-6.1-sol`; e.g. `gpt-6-astra` for the flagship). See [OpenAI models](https://developers.openai.com/docs/models). |
-| `EFFORT_ANALYST`, `EFFORT_CRITIC`, `EFFORT_RESEARCHER`, `EFFORT_COORDINATOR` | no | Reasoning effort per role (`low`/`medium`/`high`; defaults medium, medium, low, low for speed). Set to empty for models without reasoning effort. |
-| `LLM_MODEL_FAST` | no | Optional faster model for the researcher and coordinator (e.g. a "mini" model); the analyst and critic keep `LLM_MODEL`. |
-| `SKIP_HOPELESS_CHALLENGES` | no | Default `true`: skip round 3 when no finalist has both a documented event and pre-close timing (none could become leading). |
-| `ALPHA_VANTAGE_API_KEY` | no | Primary price source ([free key](https://www.alphavantage.co/support/#api-key)). Falls back to Yahoo Finance. |
-| `NEWSAPI_KEY` | no | News search ([free key](https://newsapi.org/register)). Without it, only recent Yahoo headlines are used, so older events get little news. |
-| `FRED_API_KEY` | no | Treasury yields, VIX and macro release dates ([free key](https://fred.stlouisfed.org/docs/api/api_key.html)). Without it, macro explanations can't be checked. |
-| `ANOMALY_Z_THRESHOLD`, `BEAM_WIDTH`, `MAX_ROUNDS`, `MAX_EVIDENCE_CHECKS`, `MAX_API_CALLS_PER_CASE`, `CASE_TIMEOUT_SECONDS` | no | Investigation limits. The defaults follow the design: 2.0, 2, 3, 10, 120, 900. |
+| Variable                                                                                                                   | Required | Purpose / what happens without it                                                                                                                              |
+| -------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OPENAI_API_KEY`                                                                                                           | **yes**  | Powers the four agents. Without it, investigations can't start, though the watchlist scan still works.                                                         |
+| `SEC_USER_AGENT`                                                                                                           | **yes**  | SEC EDGAR requires an app name plus a real contact email.                                                                                                      |
+| `LLM_MODEL`                                                                                                                | no       | OpenAI model ID (default `gpt-6.1-sol`; e.g. `gpt-6-astra` for the flagship). See [OpenAI models](https://developers.openai.com/docs/models).                  |
+| `EFFORT_ANALYST`, `EFFORT_CRITIC`, `EFFORT_RESEARCHER`, `EFFORT_COORDINATOR`                                               | no       | Reasoning effort per role (`low`/`medium`/`high`; defaults medium, medium, low, low for speed). Set to empty for models without reasoning effort.              |
+| `LLM_MODEL_FAST`                                                                                                           | no       | Optional faster model for the researcher and coordinator (e.g. a "mini" model); the analyst and critic keep `LLM_MODEL`.                                       |
+| `SKIP_HOPELESS_CHALLENGES`                                                                                                 | no       | Default `true`: skip round 3 when no finalist has both a documented event and pre-close timing (none could become leading).                                    |
+| `ALPHA_VANTAGE_API_KEY`                                                                                                    | no       | Primary price source ([free key](https://www.alphavantage.co/support/#api-key)). Falls back to Yahoo Finance.                                                  |
+| `NEWSAPI_KEY`                                                                                                              | no       | News search ([free key](https://newsapi.org/register)). Without it, only recent Yahoo headlines are used, so older events get little news.                     |
+| `FRED_API_KEY`                                                                                                             | no       | Treasury yields, VIX and macro release dates ([free key](https://fred.stlouisfed.org/docs/api/api_key.html)). Without it, macro explanations can't be checked. |
+| `ANOMALY_Z_THRESHOLD`, `BEAM_WIDTH`, `MAX_ROUNDS`, `MAX_EVIDENCE_CHECKS`, `MAX_API_CALLS_PER_CASE`, `CASE_TIMEOUT_SECONDS` | no       | Investigation limits. The defaults follow the design: 2.0, 2, 3, 10, 120, 900.                                                                                 |
 
 Runtime data (the LangGraph checkpoints, case index and HTTP cache) is stored in `backend/data/`.
 Delete that folder to start fresh.
@@ -314,17 +314,17 @@ capstone/
 
 The backend serves interactive docs at **http://localhost:8000/docs**.
 
-| Method | Path | Purpose |
-|---|---|---|
-| `POST` | `/api/cases` | Start an investigation: `{"query": "NVDA", "event_date": "2026-11-20", "force": false}` |
-| `GET` | `/api/cases/{id}/events` | Server-Sent Events stream: `progress`, `snapshot`, `interrupt`, `done`, `error` |
-| `GET` | `/api/cases/{id}` | Full case view (anomaly, evidence, branches, report, messages) |
-| `POST` | `/api/cases/{id}/resume` | Answer a clarification: `{"value": "AAPL"}` |
-| `POST` | `/api/cases/{id}/ask` | Follow-up question grounded in the case file |
-| `GET` | `/api/cases` | Research history |
-| `GET` | `/api/scan` | Anomaly scan of the watchlist (no LLM) |
-| `GET` / `POST` / `DELETE` | `/api/watchlist` | Manage the watchlist |
-| `GET` | `/api/config` | Configured keys, model and limits |
+| Method                    | Path                     | Purpose                                                                                 |
+| ------------------------- | ------------------------ | --------------------------------------------------------------------------------------- |
+| `POST`                    | `/api/cases`             | Start an investigation: `{"query": "NVDA", "event_date": "2026-11-20", "force": false}` |
+| `GET`                     | `/api/cases/{id}/events` | Server-Sent Events stream: `progress`, `snapshot`, `interrupt`, `done`, `error`         |
+| `GET`                     | `/api/cases/{id}`        | Full case view (anomaly, evidence, branches, report, messages)                          |
+| `POST`                    | `/api/cases/{id}/resume` | Answer a clarification: `{"value": "AAPL"}`                                             |
+| `POST`                    | `/api/cases/{id}/ask`    | Follow-up question grounded in the case file                                            |
+| `GET`                     | `/api/cases`             | Research history                                                                        |
+| `GET`                     | `/api/scan`              | Anomaly scan of the watchlist (no LLM)                                                  |
+| `GET` / `POST` / `DELETE` | `/api/watchlist`         | Manage the watchlist                                                                    |
+| `GET`                     | `/api/config`            | Configured keys, model and limits                                                       |
 
 Example:
 
@@ -339,16 +339,16 @@ Run the unit tests with `cd backend && uv run pytest`.
 
 ## Troubleshooting
 
-| Symptom | Fix |
-|---|---|
-| Top-right shows **"LLM key missing"** | Set `OPENAI_API_KEY` in `backend/.env` (or a `.env` at the project root); the backend reloads automatically. |
-| `401 Incorrect API key provided` | The key being used is invalid. Keys are read from `backend/.env`, then the project-root `.env`, then shell variables. `.env` files win over `export OPENAI_API_KEY=...` in `~/.zshrc`, but an old exported key is still used if neither `.env` sets one. |
-| Top-right shows **"API offline"** | The backend isn't running on port 8000. Start `./scripts/dev-backend.sh`. |
-| `Address already in use` | Another process holds port 8000 or 5173. Find it with `lsof -i :8000` and stop it. |
-| SEC requests fail with 403 | Set `SEC_USER_AGENT` to an app name plus a real email address. |
-| Case fails with a model error | Check that `LLM_MODEL` is a model your OpenAI account can use. If the model doesn't support reasoning effort, set the `EFFORT_*` variables to empty. |
-| Old events show no news | NewsAPI's free tier covers about the last month; without a key, only very recent Yahoo headlines are available. |
-| `uv: command not found` | Install uv: `brew install uv` or `pip install uv`. |
+| Symptom                               | Fix                                                                                                                                                                                                                                                      |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Top-right shows **"LLM key missing"** | Set `OPENAI_API_KEY` in `backend/.env` (or a `.env` at the project root); the backend reloads automatically.                                                                                                                                             |
+| `401 Incorrect API key provided`      | The key being used is invalid. Keys are read from `backend/.env`, then the project-root `.env`, then shell variables. `.env` files win over `export OPENAI_API_KEY=...` in `~/.zshrc`, but an old exported key is still used if neither `.env` sets one. |
+| Top-right shows **"API offline"**     | The backend isn't running on port 8000. Start `./scripts/dev-backend.sh`.                                                                                                                                                                                |
+| `Address already in use`              | Another process holds port 8000 or 5173. Find it with `lsof -i :8000` and stop it.                                                                                                                                                                       |
+| SEC requests fail with 403            | Set `SEC_USER_AGENT` to an app name plus a real email address.                                                                                                                                                                                           |
+| Case fails with a model error         | Check that `LLM_MODEL` is a model your OpenAI account can use. If the model doesn't support reasoning effort, set the `EFFORT_*` variables to empty.                                                                                                     |
+| Old events show no news               | NewsAPI's free tier covers about the last month; without a key, only very recent Yahoo headlines are available.                                                                                                                                          |
+| `uv: command not found`               | Install uv: `brew install uv` or `pip install uv`.                                                                                                                                                                                                       |
 
 ---
 
